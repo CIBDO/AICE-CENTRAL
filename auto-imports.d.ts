@@ -164,6 +164,7 @@ declare global {
   const useAbility: typeof import('./resources/ts/plugins/casl/composables/useAbility')['useAbility']
   const useAbs: typeof import('@vueuse/math')['useAbs']
   const useActiveElement: typeof import('@vueuse/core')['useActiveElement']
+  const useAdminPermissions: typeof import('./resources/ts/composables/useAdminPermissions')['useAdminPermissions']
   const useAdminRegions: typeof import('./resources/ts/composables/useAdminRegions')['useAdminRegions']
   const useAdminRoles: typeof import('./resources/ts/composables/useAdminRoles')['useAdminRoles']
   const useAdminUsers: typeof import('./resources/ts/composables/useAdminUsers')['useAdminUsers']
@@ -547,6 +548,7 @@ declare module 'vue' {
     readonly useAbility: UnwrapRef<typeof import('./resources/ts/plugins/casl/composables/useAbility')['useAbility']>
     readonly useAbs: UnwrapRef<typeof import('@vueuse/math')['useAbs']>
     readonly useActiveElement: UnwrapRef<typeof import('@vueuse/core')['useActiveElement']>
+    readonly useAdminPermissions: UnwrapRef<typeof import('./resources/ts/composables/useAdminPermissions')['useAdminPermissions']>
     readonly useAdminRegions: UnwrapRef<typeof import('./resources/ts/composables/useAdminRegions')['useAdminRegions']>
     readonly useAdminRoles: UnwrapRef<typeof import('./resources/ts/composables/useAdminRoles')['useAdminRoles']>
     readonly useAdminUsers: UnwrapRef<typeof import('./resources/ts/composables/useAdminUsers')['useAdminUsers']>

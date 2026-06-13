@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Notifications\UserAccountCreated;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -20,6 +22,8 @@ class UserAdminTest extends TestCase
 
     public function test_users_crud_flow(): void
     {
+        Notification::fake();
+
         $admin = User::factory()->create();
         Sanctum::actingAs($admin);
 
@@ -42,6 +46,8 @@ class UserAdminTest extends TestCase
         $userId = $createResponse->json('data.id');
         $created = User::findOrFail($userId);
         $this->assertTrue(Hash::check('Secret123!', $created->password));
+
+        Notification::assertSentTo($created, UserAccountCreated::class);
 
         $this->getJson('/api/v1/users')
             ->assertOk()

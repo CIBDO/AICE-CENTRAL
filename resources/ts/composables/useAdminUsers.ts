@@ -48,7 +48,7 @@ export function useAdminUsers() {
   }
 
   async function create(payload: UserPayload) {
-    await $api('/v1/users', { method: 'POST', body: payload })
+    return await $api<{ data: AdminUser }>('/v1/users', { method: 'POST', body: payload })
   }
 
   async function update(id: number, payload: Partial<UserPayload>) {

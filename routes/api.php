@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\MouvementController;
 use App\Http\Controllers\Api\NatureCeController;
 use App\Http\Controllers\Api\RecetteController;
 use App\Http\Controllers\Api\ProgrammeController;
+use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RegionController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
@@ -34,7 +35,9 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/regions', [RegionController::class, 'index'])->name('api.regions.index');
         Route::get('/regions/admin', [RegionController::class, 'adminIndex'])->name('api.regions.admin');
+        Route::post('/regions', [RegionController::class, 'store'])->name('api.regions.store');
         Route::put('/regions/{region}', [RegionController::class, 'update'])->name('api.regions.update');
+        Route::post('/regions/{region}/regenerate-token', [RegionController::class, 'regenerateToken'])->name('api.regions.regenerate-token');
         Route::get('/dashboards/summary', [DashboardSummaryController::class, 'show'])->name('api.dashboards.summary');
         Route::get('/central/summary', [CentralSummaryController::class, 'show'])->name('api.central.summary');
 
@@ -61,5 +64,13 @@ Route::prefix('v1')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('api.users.destroy');
 
         Route::get('/roles', [RoleController::class, 'index'])->name('api.roles.index');
+        Route::get('/roles/{role}', [RoleController::class, 'show'])->name('api.roles.show');
+        Route::get('/permissions', [PermissionController::class, 'index'])->name('api.permissions.index');
+
+        Route::middleware('can:gerer_roles')->group(function () {
+            Route::post('/roles', [RoleController::class, 'store'])->name('api.roles.store');
+            Route::put('/roles/{role}', [RoleController::class, 'update'])->name('api.roles.update');
+            Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('api.roles.destroy');
+        });
     });
 });

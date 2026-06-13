@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Region;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class RegionController extends Controller
 {
@@ -43,6 +44,52 @@ class RegionController extends Controller
         return response()->json([
             'status' => 'OK',
             'data' => $regions->map(fn (Region $region) => $this->adminPayload($region)),
+        ]);
+    }
+
+    /**
+     * POST /api/v1/regions
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:20', 'unique:regions,code'],
+            'nom' => ['required', 'string', 'max:100'],
+            'ordre' => ['nullable', 'integer', 'min:0'],
+            'actif' => ['nullable', 'boolean'],
+            'source_type' => ['nullable', 'string', 'in:api,sql'],
+        ]);
+
+        $token = Str::random(64);
+
+        $region = Region::create([
+            'code' => strtoupper($validated['code']),
+            'nom' => $validated['nom'],
+            'ordre' => $validated['ordre'] ?? 0,
+            'actif' => $validated['actif'] ?? true,
+            'source_type' => $validated['source_type'] ?? 'api',
+            'token' => $token,
+        ]);
+
+        return response()->json([
+            'status' => 'OK',
+            'data' => $this->adminPayload($region),
+            'token_plain' => $token,
+        ], 201);
+    }
+
+    /**
+     * POST /api/v1/regions/{region}/regenerate-token
+     */
+    public function regenerateToken(Region $region): JsonResponse
+    {
+        $token = Str::random(64);
+        $region->forceFill(['token' => $token])->save();
+
+        return response()->json([
+            'status' => 'OK',
+            'data' => $this->adminPayload($region->fresh()),
+            'token_plain' => $token,
         ]);
     }
 
@@ -85,6 +132,7 @@ class RegionController extends Controller
             'derniere_connexion' => $region->derniere_connexion?->toIso8601String(),
             'derniere_erreur' => $region->derniere_erreur,
             'token' => $this->maskToken($region->getRawOriginal('token')),
+            'token_masked' => $this->maskToken($region->getRawOriginal('token')),
             'created_at' => $region->created_at?->toIso8601String(),
             'updated_at' => $region->updated_at?->toIso8601String(),
         ];

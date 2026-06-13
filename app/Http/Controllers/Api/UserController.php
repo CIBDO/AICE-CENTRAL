@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Notifications\UserAccountCreated;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -38,16 +39,20 @@ class UserController extends Controller
             'actif' => ['sometimes', 'boolean'],
         ]);
 
+        $plainPassword = $validated['password'];
+
         $user = User::create([
             'nom' => $validated['nom'],
             'prenom' => $validated['prenom'],
             'email' => $validated['email'],
             'login' => $validated['login'],
-            'password' => Hash::make($validated['password']),
+            'password' => Hash::make($plainPassword),
             'role_id' => $validated['role_id'],
             'actif' => $validated['actif'] ?? true,
             'premiere_connexion' => true,
         ]);
+
+        $user->notify(new UserAccountCreated($plainPassword));
 
         $user->load('role:id,nom');
 

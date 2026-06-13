@@ -27,3 +27,7 @@ export function formatMonthYear(annee: number | null, mois: number | null): stri
 
   return `${label} ${annee}`
 }
+
+export function formatPercent(value: number): string {
+  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(value)} %`
+}

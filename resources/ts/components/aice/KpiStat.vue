@@ -7,24 +7,44 @@ interface Props {
   variation?: string | null
   variationType?: 'up' | 'down' | 'neutral'
   accent?: KpiAccent
+  active?: boolean
+  selectable?: boolean
+  icon?: string
 }
 
 withDefaults(defineProps<Props>(), {
   variation: null,
   variationType: 'neutral',
   accent: 'neutral',
+  active: false,
+  selectable: false,
+  icon: undefined,
 })
+
+const emit = defineEmits<{ select: [] }>()
 </script>
 
 <template>
   <VCard
     class="aice-kpi-stat"
-    :class="`aice-kpi-stat--${accent}`"
+    :class="[
+      `aice-kpi-stat--${accent}`,
+      { 'aice-kpi-stat--active': active, 'aice-kpi-stat--selectable': selectable },
+    ]"
     rounded="lg"
+    @click="selectable ? emit('select') : undefined"
   >
     <VCardText class="pa-5">
-      <div class="aice-kpi-stat__label">
-        {{ label }}
+      <div class="d-flex align-start justify-space-between gap-2 mb-2">
+        <div class="aice-kpi-stat__label">
+          {{ label }}
+        </div>
+        <VIcon
+          v-if="icon"
+          :icon="icon"
+          size="20"
+          class="aice-kpi-stat__icon"
+        />
       </div>
       <div class="aice-kpi-stat__value">
         {{ value }}
@@ -54,10 +74,30 @@ withDefaults(defineProps<Props>(), {
     border-inline-start-color: rgb(var(--v-theme-error));
   }
 
-  &--solde,
-  &--encaisse,
   &--neutral {
     border-inline-start-color: rgb(var(--v-theme-primary));
+  }
+
+  &--selectable {
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+      background: rgb(var(--v-theme-grey-50));
+      box-shadow: 0 6px 20px rgba(30, 58, 95, 0.08);
+      transform: translateY(-1px);
+    }
+  }
+
+  &__icon {
+    color: rgba(var(--v-theme-on-surface), 0.35);
+    opacity: 0.85;
+  }
+
+  &--active {
+    background: rgba(var(--v-theme-primary), 0.06);
+    border-color: rgb(var(--v-theme-primary));
+    box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.25);
   }
 
   &__label {

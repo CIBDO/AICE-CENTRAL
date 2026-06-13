@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Dashboard;
 use App\Models\Region;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class DashboardSummaryTest extends TestCase
@@ -13,6 +15,8 @@ class DashboardSummaryTest extends TestCase
 
     public function test_summary_returns_kpis_for_region(): void
     {
+        Sanctum::actingAs(User::factory()->create());
+
         $region = Region::create([
             'code' => 'RGF',
             'nom' => 'Région du Fleuve',

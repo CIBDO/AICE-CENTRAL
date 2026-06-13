@@ -43,12 +43,22 @@ export default [
     to: 'details-programmes',
   },
   {
+    title: 'Natures CE',
+    icon: { icon: 'tabler-category' },
+    to: 'details-natures-ce',
+  },
+  {
     heading: 'Administration',
   },
   {
     title: 'Utilisateurs',
     icon: { icon: 'tabler-users' },
     to: 'admin-users',
+  },
+  {
+    title: 'Rôles',
+    icon: { icon: 'tabler-shield-lock' },
+    to: 'admin-roles',
   },
   {
     title: 'Régions',

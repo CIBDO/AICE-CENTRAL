@@ -1,15 +1,12 @@
 <script setup lang="ts">
 import type { KpiAccent } from '@/types/dashboard'
+import DashboardHero from '@/components/aice/DashboardHero.vue'
+import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
 import { formatDateFr, formatFcfa, formatMonthYear } from '@/composables/useFormat'
 import { useDashboardSummary } from '@/composables/useDashboardSummary'
 import { useRegions } from '@/composables/useRegions'
 
-definePage({
-  meta: {
-    layout: 'default',
-    public: true,
-  },
-})
+definePage({ meta: { layout: 'default' } })
 
 const selectedRegion = ref<string | null>(null)
 const annee = ref(new Date().getFullYear())
@@ -18,83 +15,122 @@ const mois = ref<number | null>(new Date().getMonth() + 1)
 const { loading, error, summary, fetchSummary } = useDashboardSummary()
 const { loading: regionsLoading, regions, fetchRegions } = useRegions()
 
+const quickLinks = [
+  { title: 'Mandats', hint: 'Explorateur interactif', icon: 'tabler-file-invoice', to: { name: 'details-mandats' } },
+  { title: 'Recettes', hint: 'Clients & encaissements', icon: 'tabler-cash', to: { name: 'details-recettes' } },
+  { title: 'Banques', hint: 'Flux trésorerie', icon: 'tabler-building-bank', to: { name: 'details-banques' } },
+  { title: 'Programmes', hint: 'Exécution budgétaire', icon: 'tabler-layout-grid', to: { name: 'details-programmes' } },
+  { title: 'Natures CE', hint: 'Classification CE', icon: 'tabler-category', to: { name: 'details-natures-ce' } },
+  { title: 'Vue centrale', hint: 'Multi-régions', icon: 'tabler-chart-dots-3', to: { name: 'dashboards-central' } },
+]
+
 const kpis = computed(() => {
   const data = summary.value?.kpis
-
   if (!data) {
     return [
-      { label: 'Recettes', value: '—', accent: 'recettes' as KpiAccent },
-      { label: 'Dépenses', value: '—', accent: 'depenses' as KpiAccent },
-      { label: 'Solde', value: '—', accent: 'solde' as KpiAccent },
-      { label: 'Encaisse', value: '—', accent: 'encaisse' as KpiAccent },
+      { label: 'Recettes', value: '—', accent: 'recettes' as KpiAccent, icon: 'tabler-trending-up' },
+      { label: 'Dépenses', value: '—', accent: 'depenses' as KpiAccent, icon: 'tabler-trending-down' },
+      { label: 'Solde', value: '—', accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
+      { label: 'Encaisse', value: '—', accent: 'encaisse' as KpiAccent, icon: 'tabler-vault' },
     ]
   }
-
   return [
-    { label: 'Recettes', value: formatFcfa(data.total_recettes), accent: 'recettes' as KpiAccent },
-    { label: 'Dépenses', value: formatFcfa(data.total_depenses), accent: 'depenses' as KpiAccent },
-    { label: 'Solde', value: formatFcfa(data.solde), accent: 'solde' as KpiAccent },
-    { label: 'Encaisse', value: formatFcfa(data.encaisse), accent: 'encaisse' as KpiAccent },
+    { label: 'Recettes', value: formatFcfa(data.total_recettes), accent: 'recettes' as KpiAccent, icon: 'tabler-trending-up' },
+    { label: 'Dépenses', value: formatFcfa(data.total_depenses), accent: 'depenses' as KpiAccent, icon: 'tabler-trending-down' },
+    { label: 'Solde', value: formatFcfa(data.solde), accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
+    { label: 'Encaisse', value: formatFcfa(data.encaisse), accent: 'encaisse' as KpiAccent, icon: 'tabler-vault' },
   ]
 })
 
-const regionLabel = computed(() => {
+const heroStats = computed(() => {
   if (!summary.value)
-    return null
-
-  return `${summary.value.region.nom} (${summary.value.region.code})`
+    return []
+  return [
+    { label: 'Mouvements', value: (summary.value.meta.mouvements_count ?? 0).toLocaleString('fr-FR') },
+    { label: 'Période', value: formatMonthYear(annee.value, mois.value) },
+  ]
 })
 
+const regionLabel = computed(() => summary.value ? `${summary.value.region.nom} (${summary.value.region.code})` : null)
 const periodLabel = computed(() => formatMonthYear(annee.value, mois.value))
-
 const lastUpdate = computed(() => formatDateFr(summary.value?.meta.derniere_mise_a_jour))
 
-async function loadDashboard() {
-  await fetchSummary({
-    region_code: selectedRegion.value ?? undefined,
-    annee: annee.value,
-    mois: mois.value,
-  })
+const statutsChart = computed(() => ({
+  labels: summary.value?.statuts_mandats.map(r => r.statut) ?? [],
+  datasets: [{ data: summary.value?.statuts_mandats.map(r => r.count) ?? [] }],
+}))
 
+const mandatsTypeChart = computed(() => ({
+  labels: summary.value?.mandats_par_type.map(r => r.libelle) ?? [],
+  datasets: [{ label: 'Montant (FCFA)', data: summary.value?.mandats_par_type.map(r => r.montant) ?? [] }],
+}))
+
+const hasChartData = computed(() => (summary.value?.meta.mouvements_count ?? 0) > 0)
+
+async function loadDashboard() {
+  await fetchSummary({ region_code: selectedRegion.value ?? undefined, annee: annee.value, mois: mois.value })
   if (!selectedRegion.value && summary.value?.region.code)
     selectedRegion.value = summary.value.region.code
 }
 
-watch([selectedRegion, annee, mois], () => {
-  loadDashboard()
-})
-
+watch([selectedRegion, annee, mois], () => loadDashboard())
 onMounted(async () => {
   await fetchRegions()
   if (regions.value.length)
     selectedRegion.value = regions.value[0].code
-
   await loadDashboard()
 })
 </script>
 
 <template>
   <div class="aice-page">
-    <PageHeader
+    <DashboardHero
       title="Tableau de bord régional"
-      subtitle="Synthèse des mouvements, mandats et soldes de trésorerie."
-      :region-label="regionLabel"
-      :last-update="summary?.meta.derniere_mise_a_jour ? lastUpdate : null"
+      subtitle="Synthèse des mouvements, mandats et soldes de trésorerie — données Push en temps réel."
+      :meta="regionLabel ? `${regionLabel}${lastUpdate ? ` · MAJ ${lastUpdate}` : ''}` : null"
+      :stats="heroStats"
     />
 
-    <PeriodToolbar
-      v-model:annee="annee"
-      v-model:mois="mois"
-      @refresh="loadDashboard"
-    >
-      <template #region>
+    <QuickLinkGrid :links="quickLinks" />
+
+    <div class="aice-sticky-toolbar">
+      <div class="d-flex flex-wrap align-center gap-3">
         <RegionSelector
           v-model="selectedRegion"
           :regions="regions"
           :loading="regionsLoading"
         />
-      </template>
-    </PeriodToolbar>
+        <VSelect
+          v-model="annee"
+          :items="[annee, annee - 1, annee - 2]"
+          label="Année"
+          density="compact"
+          hide-details
+          style="max-inline-size: 100px;"
+        />
+        <VSelect
+          v-model="mois"
+          :items="Array.from({ length: 12 }, (_, i) => ({ title: new Date(2024, i).toLocaleString('fr-FR', { month: 'long' }), value: i + 1 }))"
+          item-title="title"
+          item-value="value"
+          label="Mois"
+          density="compact"
+          hide-details
+          style="max-inline-size: 150px;"
+        />
+        <VSpacer />
+        <VBtn
+          variant="flat"
+          color="primary"
+          size="small"
+          prepend-icon="tabler-refresh"
+          :loading="loading"
+          @click="loadDashboard"
+        >
+          Actualiser
+        </VBtn>
+      </div>
+    </div>
 
     <VAlert
       v-if="error"
@@ -106,14 +142,10 @@ onMounted(async () => {
       {{ error }}
     </VAlert>
 
-    <div
-      v-if="!loading && summary && summary.meta.mouvements_count === 0"
-      class="aice-empty-banner mb-4"
+    <VRow
+      v-if="loading"
+      class="aice-kpi-grid"
     >
-      Aucune donnée reçue pour {{ periodLabel }}. Les régions doivent pousser leurs données via l'API Push.
-    </div>
-
-    <VRow v-if="loading">
       <VCol
         v-for="i in 4"
         :key="i"
@@ -125,7 +157,10 @@ onMounted(async () => {
       </VCol>
     </VRow>
 
-    <VRow v-else>
+    <VRow
+      v-else
+      class="aice-kpi-grid"
+    >
       <VCol
         v-for="kpi in kpis"
         :key="kpi.label"
@@ -137,7 +172,57 @@ onMounted(async () => {
           :label="kpi.label"
           :value="kpi.value"
           :accent="kpi.accent"
+          :icon="kpi.icon"
         />
+      </VCol>
+    </VRow>
+
+    <VRow>
+      <VCol
+        cols="12"
+        lg="5"
+      >
+        <DataPanel
+          title="Répartition par statut"
+          :subtitle="periodLabel"
+        >
+          <ChartWidget
+            v-if="hasChartData && statutsChart.labels.length"
+            type="doughnut"
+            :labels="statutsChart.labels"
+            :datasets="statutsChart.datasets"
+            :height="260"
+          />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucune donnée pour cette période.
+          </div>
+        </DataPanel>
+      </VCol>
+      <VCol
+        cols="12"
+        lg="7"
+      >
+        <DataPanel
+          title="Mandats par type"
+          subtitle="Matériel · Salaire · Reversement"
+        >
+          <ChartWidget
+            v-if="hasChartData && mandatsTypeChart.labels.length"
+            type="bar"
+            :labels="mandatsTypeChart.labels"
+            :datasets="mandatsTypeChart.datasets"
+            :height="260"
+          />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucune donnée pour cette période.
+          </div>
+        </DataPanel>
       </VCol>
     </VRow>
 
@@ -153,7 +238,7 @@ onMounted(async () => {
           <VTable
             v-if="summary?.statuts_mandats.length"
             density="compact"
-            class="aice-simple-table"
+            class="aice-admin-table"
           >
             <thead>
               <tr>
@@ -171,7 +256,7 @@ onMounted(async () => {
                 v-for="row in summary.statuts_mandats"
                 :key="row.statut"
               >
-                <td>{{ row.statut }}</td>
+                <td><StatutChip :statut="row.statut" /></td>
                 <td class="text-end tabular-nums">
                   {{ row.count.toLocaleString('fr-FR') }}
                 </td>
@@ -181,23 +266,13 @@ onMounted(async () => {
               </tr>
             </tbody>
           </VTable>
-          <div
-            v-else
-            class="aice-panel-empty"
-          >
-            Aucun mouvement enregistré pour cette période.
-          </div>
         </DataPanel>
       </VCol>
-
       <VCol
         cols="12"
         lg="4"
       >
-        <DataPanel
-          title="Mandats par type"
-          subtitle="Matériel · Salaire · Reversement"
-        >
+        <DataPanel title="Types de mandats">
           <MandatsTypeTable
             :rows="summary?.mandats_par_type ?? []"
             :loading="loading"
@@ -209,40 +284,7 @@ onMounted(async () => {
 </template>
 
 <style scoped lang="scss">
-.aice-empty-banner {
-  background: rgb(var(--v-theme-grey-50));
-  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 1));
-  border-inline-start: 3px solid rgb(var(--v-theme-warning));
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-  font-size: 0.8125rem;
-  padding-block: 0.875rem;
-  padding-inline: 1rem;
-}
-
-.aice-simple-table {
-  :deep(thead th) {
-    background: rgb(var(--v-theme-grey-50));
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  :deep(tbody td) {
-    font-size: 0.8125rem;
-  }
-}
-
-.aice-panel-empty,
 .tabular-nums {
   font-variant-numeric: tabular-nums;
-}
-
-.aice-panel-empty {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.8125rem;
-  padding-block: 2rem;
-  text-align: center;
 }
 </style>

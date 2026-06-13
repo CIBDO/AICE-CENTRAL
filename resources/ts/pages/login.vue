@@ -1,20 +1,6 @@
-<!-- ❗Errors in the form are set on line 60 -->
 <script setup lang="ts">
 import { VForm } from 'vuetify/components/VForm'
-import AuthProvider from '@/views/pages/authentication/AuthProvider.vue'
-import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
-import authV2LoginIllustrationBorderedDark from '@images/pages/auth-v2-login-illustration-bordered-dark.png'
-import authV2LoginIllustrationBorderedLight from '@images/pages/auth-v2-login-illustration-bordered-light.png'
-import authV2LoginIllustrationDark from '@images/pages/auth-v2-login-illustration-dark.png'
-import authV2LoginIllustrationLight from '@images/pages/auth-v2-login-illustration-light.png'
-import authV2MaskDark from '@images/pages/misc-mask-dark.png'
-import authV2MaskLight from '@images/pages/misc-mask-light.png'
-import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
-
-const authThemeImg = useGenerateImageVariant(authV2LoginIllustrationLight, authV2LoginIllustrationDark, authV2LoginIllustrationBorderedLight, authV2LoginIllustrationBorderedDark, true)
-
-const authThemeMask = useGenerateImageVariant(authV2MaskLight, authV2MaskDark)
 
 definePage({
   meta: {
@@ -24,55 +10,68 @@ definePage({
 })
 
 const isPasswordVisible = ref(false)
-
 const route = useRoute()
 const router = useRouter()
-
 const ability = useAbility()
+const isLoading = ref(false)
 
 const errors = ref<Record<string, string | undefined>>({
-  email: undefined,
+  login: undefined,
   password: undefined,
 })
 
 const refVForm = ref<VForm>()
 
 const credentials = ref({
-  email: 'admin@demo.com',
-  password: 'admin',
+  login: '',
+  password: '',
 })
 
-const rememberMe = ref(false)
-
 const login = async () => {
+  isLoading.value = true
+  errors.value = { login: undefined, password: undefined }
+
   try {
-    const res = await $api('/auth/login', {
+    const res = await $api('/v1/auth/login', {
       method: 'POST',
       body: {
-        email: credentials.value.email,
+        login: credentials.value.login,
         password: credentials.value.password,
       },
       onResponseError({ response }) {
-        errors.value = response._data.errors
+        const data = response._data as { errors?: Record<string, string[]>; message?: string }
+        if (data.errors?.login?.[0])
+          errors.value.login = data.errors.login[0]
+        else if (data.message)
+          errors.value.login = data.message
+        else
+          errors.value.login = 'Connexion impossible.'
       },
     })
 
-    const { accessToken, userData, userAbilityRules } = res
+    const { accessToken, userData, userAbilityRules } = res as {
+      accessToken: string
+      userData: Record<string, unknown>
+      userAbilityRules: unknown[]
+    }
 
-    useCookie('userAbilityRules').value = userAbilityRules
-    ability.update(userAbilityRules)
-
-    useCookie('userData').value = userData
+    useCookie('userAbilityRules').value = userAbilityRules as never
+    ability.update(userAbilityRules as never)
+    useCookie('userData').value = userData as never
     useCookie('accessToken').value = accessToken
 
-    // Redirect to `to` query if exist or redirect to index route
-    // ❗ nextTick is required to wait for DOM updates and later redirect
     await nextTick(() => {
-      router.replace(route.query.to ? String(route.query.to) : '/')
+      if (userData.premiereConnexion)
+        router.replace({ name: 'auth-first-login' })
+      else
+        router.replace(route.query.to ? String(route.query.to) : '/')
     })
   }
-  catch (err) {
-    console.error(err)
+  catch {
+    // onResponseError handles messages
+  }
+  finally {
+    isLoading.value = false
   }
 }
 
@@ -86,167 +85,138 @@ const onSubmit = () => {
 </script>
 
 <template>
-  <RouterLink to="/">
-    <div class="auth-logo d-flex align-center gap-x-3">
-      <VNodeRenderer :nodes="themeConfig.app.logo" />
-      <h1 class="auth-title">
-        {{ themeConfig.app.title }}
-      </h1>
-    </div>
-  </RouterLink>
-
-  <VRow
-    no-gutters
-    class="auth-wrapper bg-surface"
-  >
-    <VCol
-      md="8"
-      class="d-none d-md-flex"
-    >
-      <div class="position-relative bg-background w-100 me-0">
-        <div
-          class="d-flex align-center justify-center w-100 h-100"
-          style="padding-inline: 6.25rem;"
-        >
-          <VImg
-            max-width="613"
-            :src="authThemeImg"
-            class="auth-illustration mt-16 mb-2"
-          />
-        </div>
-
-        <img
-          class="auth-footer-mask"
-          :src="authThemeMask"
-          alt="auth-footer-mask"
-          height="280"
-          width="100"
-        >
+  <div class="aice-login">
+    <div class="aice-login__panel">
+      <div class="aice-login__brand">
+        <span class="aice-login__mark">DGTCP</span>
+        <p class="aice-login__org">
+          Direction Générale du Trésor et de la Comptabilité Publique
+        </p>
       </div>
-    </VCol>
 
-    <VCol
-      cols="12"
-      md="4"
-      class="auth-card-v2 d-flex align-center justify-center"
-    >
       <VCard
         flat
-        :max-width="500"
-        class="mt-12 mt-sm-0 pa-4"
+        class="aice-login__card"
       >
-        <VCardText>
-          <h4 class="text-h4 mb-1">
-            Welcome to <span class="text-capitalize"> {{ themeConfig.app.title }} </span>! 👋🏻
-          </h4>
-          <p class="mb-0">
-            Please sign-in to your account and start the adventure
+        <VCardText class="pb-2">
+          <h1 class="aice-login__title">
+            Connexion
+          </h1>
+          <p class="aice-login__subtitle">
+            Accès au tableau de bord décisionnel
           </p>
         </VCardText>
-        <VCardText>
-          <VAlert
-            color="primary"
-            variant="tonal"
-          >
-            <p class="text-sm mb-2">
-              Admin Email: <strong>admin@demo.com</strong> / Pass: <strong>admin</strong>
-            </p>
-            <p class="text-sm mb-0">
-              Client Email: <strong>client@demo.com</strong> / Pass: <strong>client</strong>
-            </p>
-          </VAlert>
-        </VCardText>
+
         <VCardText>
           <VForm
             ref="refVForm"
             @submit.prevent="onSubmit"
           >
             <VRow>
-              <!-- email -->
               <VCol cols="12">
                 <AppTextField
-                  v-model="credentials.email"
-                  label="Email"
-                  placeholder="johndoe@email.com"
-                  type="email"
+                  v-model="credentials.login"
+                  label="Identifiant"
+                  placeholder="Votre login"
                   autofocus
-                  :rules="[requiredValidator, emailValidator]"
-                  :error-messages="errors.email"
+                  :rules="[requiredValidator]"
+                  :error-messages="errors.login"
                 />
               </VCol>
 
-              <!-- password -->
               <VCol cols="12">
                 <AppTextField
                   v-model="credentials.password"
-                  label="Password"
+                  label="Mot de passe"
                   placeholder="············"
                   :rules="[requiredValidator]"
                   :type="isPasswordVisible ? 'text' : 'password'"
-                  autocomplete="password"
+                  autocomplete="current-password"
                   :error-messages="errors.password"
                   :append-inner-icon="isPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 />
+              </VCol>
 
-                <div class="d-flex align-center flex-wrap justify-space-between my-6">
-                  <VCheckbox
-                    v-model="rememberMe"
-                    label="Remember me"
-                  />
-                  <RouterLink
-                    class="text-primary ms-2 mb-1"
-                    :to="{ name: 'forgot-password' }"
-                  >
-                    Forgot Password?
-                  </RouterLink>
-                </div>
-
+              <VCol cols="12">
                 <VBtn
                   block
                   type="submit"
+                  :loading="isLoading"
                 >
-                  Login
+                  Se connecter
                 </VBtn>
-              </VCol>
-
-              <!-- create account -->
-              <VCol
-                cols="12"
-                class="text-center"
-              >
-                <span>New on our platform?</span>
-                <RouterLink
-                  class="text-primary ms-1"
-                  :to="{ name: 'register' }"
-                >
-                  Create an account
-                </RouterLink>
-              </VCol>
-              <VCol
-                cols="12"
-                class="d-flex align-center"
-              >
-                <VDivider />
-                <span class="mx-4">or</span>
-                <VDivider />
-              </VCol>
-
-              <!-- auth providers -->
-              <VCol
-                cols="12"
-                class="text-center"
-              >
-                <AuthProvider />
               </VCol>
             </VRow>
           </VForm>
         </VCardText>
       </VCard>
-    </VCol>
-  </VRow>
+
+      <p class="aice-login__footer">
+        {{ themeConfig.app.title }} — usage interne
+      </p>
+    </div>
+  </div>
 </template>
 
-<style lang="scss">
-@use "@core-scss/template/pages/page-auth";
+<style scoped lang="scss">
+.aice-login {
+  align-items: center;
+  background: rgb(var(--v-theme-background));
+  display: flex;
+  justify-content: center;
+  min-block-size: 100dvh;
+  padding: 1.5rem;
+}
+
+.aice-login__panel {
+  inline-size: 100%;
+  max-inline-size: 420px;
+}
+
+.aice-login__brand {
+  margin-block-end: 2rem;
+  text-align: center;
+}
+
+.aice-login__mark {
+  color: rgb(var(--v-theme-primary));
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.aice-login__org {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  margin-block: 0.5rem 0;
+  margin-inline: auto;
+  max-inline-size: 320px;
+}
+
+.aice-login__card {
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 1));
+}
+
+.aice-login__title {
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-block-end: 0.25rem;
+}
+
+.aice-login__subtitle {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.aice-login__footer {
+  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+  font-size: 0.75rem;
+  margin-block: 1.5rem 0;
+  text-align: center;
+}
 </style>

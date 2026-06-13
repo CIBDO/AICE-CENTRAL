@@ -77,7 +77,7 @@ Document de référence pour l'interface Vue 3. Objectif : un rendu **institutio
 
 | Élément | Style |
 |---------|-------|
-| Police | **Public Sans** ou **Roboto** (déjà dans le template) |
+| Police | **JetBrains Mono** (`JetBrainsMono-Regular.ttf`) — monospace, idéale pour chiffres et tableaux |
 | Titres de page | 1.25rem, weight 600, couleur `#000000` |
 | Sous-titres | 0.875rem, weight 400, couleur `#374151` |
 | KPI — valeur | 1.75rem, weight 600, tabular-nums |
@@ -162,9 +162,12 @@ Tableau de bord ▾ | Données ▾ | Administration ▾
 |---------|------|
 | `themeConfig.ts` | Logo image, layout, locale FR |
 | `plugins/vuetify/theme.ts` | Palette DGTCP + export `dgtcpColors` |
-| `resources/styles/styles.scss` | Sidebar verte, logo |
+| `resources/styles/styles.scss` | Menu horizontal, logo, typographie |
 | `resources/styles/aice/` | Hero, explorer, composants métier |
 | `public/images/dgtcp-logo.png` | Logo officiel |
+| `resources/styles/fonts/_jetbrains-mono.scss` | Déclaration `@font-face` |
+| `public/fonts/JetBrainsMono-Regular.ttf` | Fichier police |
+| `constants/typography.ts` | Constante partagée (graphiques) |
 | `components/aice/` | Composants réutilisables métier |
 
 ---

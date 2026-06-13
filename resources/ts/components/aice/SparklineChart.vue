@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import LineChart from '@core/libs/chartjs/components/LineChart'
-
+import { chartFont } from '@/constants/typography'
 const props = defineProps<{
   labels: string[]
   data: number[]
@@ -27,9 +27,8 @@ const chartOptions = computed(() => ({
   maintainAspectRatio: false,
   plugins: { legend: { display: false } },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8 } },
-    y: { grid: { color: '#E2E8F0' }, ticks: { font: { size: 10 } } },
-  },
+    x: { grid: { display: false }, ticks: { font: { ...chartFont, size: 10 }, maxTicksLimit: 8 } },
+    y: { grid: { color: '#E2E8F0' }, ticks: { font: { ...chartFont, size: 10 } } },  },
 }))
 </script>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import DashboardHero from '@/components/aice/DashboardHero.vue'
+import DataPanel from '@/components/aice/DataPanel.vue'
 import { formatDateFr } from '@/composables/useFormat'
 import { useAdminRegions } from '@/composables/useAdminRegions'
 

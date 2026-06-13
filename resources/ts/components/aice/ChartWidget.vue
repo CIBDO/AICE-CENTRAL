@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import BarChart from '@core/libs/chartjs/components/BarChart'
 import DoughnutChart from '@core/libs/chartjs/components/DoughnutChart'
-
+import { chartFont } from '@/constants/typography'
 const props = defineProps<{
   type: 'bar' | 'doughnut'
   labels: string[]
@@ -57,7 +57,7 @@ const chartOptions = computed(() => {
         labels: {
           boxWidth: 10,
           padding: 12,
-          font: { size: 11 },
+          font: chartFont,
         },
       },
     },
@@ -69,12 +69,12 @@ const chartOptions = computed(() => {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { size: 11 } },
+          ticks: { font: chartFont },
         },
         y: {
           beginAtZero: true,
           grid: { color: '#E2E8F0' },
-          ticks: { font: { size: 11 } },
+          ticks: { font: chartFont },
         },
       },
     }

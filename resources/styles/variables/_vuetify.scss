@@ -1,7 +1,6 @@
 // ❗ Path must be relative
-@forward "../@core/template/libs/vuetify/variables";
+$jetbrains-mono-font: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-// ℹ️ Remove above import and uncomment below to override core variables.
-// @forward "../@core/template/libs/vuetify/variables" with (
-//   $<variable-name>: <variable-value>
-// )
+@forward "../@core/template/libs/vuetify/variables" with (
+  $body-font-family: $jetbrains-mono-font
+);

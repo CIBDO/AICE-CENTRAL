@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const statut = defineModel<string>('')
+const props = defineProps<{
+  statut: string
+}>()
 
 const colorMap: Record<string, string> = {
   'Payé': 'success',
@@ -8,18 +10,18 @@ const colorMap: Record<string, string> = {
 }
 
 const chipColor = computed(() => {
-  if (!statut.value)
+  if (!props.statut || props.statut === '—')
     return 'secondary'
-  if (statut.value.includes('Rejet'))
+  if (props.statut.includes('Rejet'))
     return 'error'
 
-  return colorMap[statut.value] ?? 'secondary'
+  return colorMap[props.statut] ?? 'secondary'
 })
 </script>
 
 <template>
   <VChip
-    v-if="statut"
+    v-if="statut && statut !== '—'"
     :color="chipColor"
     size="x-small"
     variant="tonal"
@@ -27,6 +29,10 @@ const chipColor = computed(() => {
   >
     {{ statut }}
   </VChip>
+  <span
+    v-else
+    class="text-medium-emphasis"
+  >—</span>
 </template>
 
 <style scoped lang="scss">

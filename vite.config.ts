@@ -109,6 +109,15 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 5000,
   },
+  server: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: false,
+    cors: true,
+    hmr: {
+      host: '127.0.0.1',
+    },
+  },
   optimizeDeps: {
     exclude: ['vuetify'],
     entries: [

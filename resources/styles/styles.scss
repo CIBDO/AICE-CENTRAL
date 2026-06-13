@@ -1,0 +1,24 @@
+// Overrides DGTCP — styles institutionnels
+@import './aice/index';
+
+.dgtcp-logo {
+  align-items: center;
+  display: flex;
+  line-height: 1;
+
+  &__mark {
+    color: rgb(var(--v-theme-primary));
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+}
+
+// Réduire les ombres globales du template
+.v-card {
+  box-shadow: none !important;
+}
+
+.layout-wrapper {
+  background: rgb(var(--v-theme-background));
+}

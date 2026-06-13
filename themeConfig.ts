@@ -8,12 +8,13 @@ import { AppContentLayoutNav, ContentWidth, FooterType, NavbarType } from '@layo
 export const { themeConfig, layoutConfig } = defineThemeConfig({
   app: {
     title: 'DGTCP',
-    logo: h('div', {
-      class: 'dgtcp-logo',
-      innerHTML: '<span class="dgtcp-logo__mark">DGTCP</span>',
+    logo: h('img', {
+      src: '/images/dgtcp-logo.png',
+      alt: 'DGTCP — Direction Générale du Trésor et de la Comptabilité Publique',
+      class: 'dgtcp-logo__img',
     }),
     contentWidth: ContentWidth.Fluid,
-    contentLayoutNav: AppContentLayoutNav.Vertical,
+    contentLayoutNav: AppContentLayoutNav.Horizontal,
     overlayNavFromBreakpoint: breakpointsVuetifyV3.lg - 1,
     i18n: {
       enable: true,

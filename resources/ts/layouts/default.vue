@@ -8,8 +8,11 @@ const DefaultLayoutWithVerticalNav = defineAsyncComponent(() => import('./compon
 
 const configStore = useConfigStore()
 
-// ℹ️ This will switch to vertical nav when define breakpoint is reached when in horizontal nav layout
-// Remove below composable usage if you are not using horizontal nav layout in your app
+// DGTCP : menu horizontal (surcharge préférence cookie legacy « vertical »)
+if (configStore.appContentLayoutNav !== AppContentLayoutNav.Horizontal)
+  configStore.appContentLayoutNav = AppContentLayoutNav.Horizontal
+
+// ℹ️ Bascule overlay vertical sur petit écran
 switchToVerticalNavOnLtOverlayNavBreakpoint()
 
 const { layoutAttrs, injectSkinClasses } = useSkins()

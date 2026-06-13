@@ -14,12 +14,12 @@ const props = defineProps<{
 }>()
 
 const chartColors = {
-  primary: '#1E3A5F',
-  secondary: '#4A5568',
-  success: '#276749',
-  error: '#C53030',
-  warning: '#B7791F',
-  muted: '#CBD5E0',
+  primary: '#08A04B',
+  secondary: '#374151',
+  success: '#08A04B',
+  error: '#E53935',
+  warning: '#E7C936',
+  muted: '#DDE3EA',
 }
 
 const defaultPalette = [

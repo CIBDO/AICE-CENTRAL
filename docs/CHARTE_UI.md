@@ -1,6 +1,6 @@
 # Charte UI — Dashboard DGTCP
 
-Document de référence pour l'interface Vue 3. Objectif : un rendu **institutionnel**, **sobre** et **lisible**, comparable aux tableaux de bord des grandes administrations financières — sans esthétique générique de template SaaS ni « touche IA ».
+Document de référence pour l'interface Vue 3. Objectif : un rendu **institutionnel**, **sobre** et **lisible**, aux couleurs officielles de la DGTCP (République du Mali).
 
 ---
 
@@ -9,10 +9,10 @@ Document de référence pour l'interface Vue 3. Objectif : un rendu **institutio
 | Principe | Application |
 |----------|-------------|
 | **Données d'abord** | L'information comptable prime sur la décoration |
-| **Sobriété** | Pas de gradients, illustrations marketing, badges flashy |
+| **Sobriété** | Pas d'illustrations marketing, badges flashy |
 | **Cohérence** | Même grille, mêmes espacements, mêmes composants partout |
 | **Lisibilité** | Contrastes suffisants, typographie stable, chiffres alignés |
-| **Institutionnel** | Palette neutre + une couleur d'accent unique (bleu marine) |
+| **Institutionnel** | Vert DGTCP + accents Or et Rouge République |
 | **Français** | Interface en français, formats locale `fr-FR` |
 
 ### Interdictions explicites
@@ -27,161 +27,146 @@ Document de référence pour l'interface Vue 3. Objectif : un rendu **institutio
 
 ---
 
-## 2. Palette
+## 2. Palette officielle DGTCP
 
-### Couleurs institutionnelles
+### Couleurs principales
+
+| Token | Hex | RGB | Usage |
+|-------|-----|-----|-------|
+| **Vert institutionnel** | `#08A04B` | 8, 160, 75 | Barre latérale, menus, boutons primaires, fonds institutionnels, hero dashboards |
+| **Jaune Or** | `#E7C936` | 231, 201, 54 | Accents, badges, statistiques importantes (encaisse), barre active sidebar |
+| **Rouge République** | `#E53935` | 229, 57, 53 | Alertes, notifications critiques, suppressions, dépenses |
+| **Noir institutionnel** | `#000000` | 0, 0, 0 | Titres, textes importants |
+
+### Couleurs secondaires
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `primary` | `#1E3A5F` | En-têtes, liens actifs, barres graphiques principales |
-| `primary-darken-1` | `#152A45` | Hover, texte sur fond clair accentué |
-| `secondary` | `#4A5568` | Texte secondaire, labels |
-| `background` | `#F4F5F7` | Fond de page |
-| `surface` | `#FFFFFF` | Cartes, panneaux |
-| `border` | `#E2E8F0` | Séparateurs, bordures de table |
-| `on-surface` | `#1A202C` | Texte principal |
-| `success` | `#276749` | Recettes, soldes positifs |
-| `error` | `#C53030` | Dépenses, alertes |
-| `warning` | `#B7791F` | Vigilance, retards |
+| **Blanc** | `#FFFFFF` | Cartes, formulaires, tableaux |
+| **Gris clair** | `#F5F7FA` | Fond général de l'application |
+| **Gris moyen** | `#DDE3EA` | Bordures, séparateurs, cartes inactives |
+| **Gris foncé** | `#374151` | Texte secondaire, libellés |
 
-Pas de couleur `info` criarde — utiliser `secondary` pour l'information neutre.
+### Mapping Vuetify
+
+| Token Vuetify | Hex | Rôle |
+|---------------|-----|------|
+| `primary` | `#08A04B` | Actions principales, liens actifs, graphiques |
+| `primary-darken-1` | `#067A39` | Hover, dégradés hero |
+| `secondary` | `#374151` | Texte secondaire, info neutre |
+| `warning` | `#E7C936` | Accents Or, KPI encaisse |
+| `error` | `#E53935` | Alertes, dépenses, suppressions |
+| `success` | `#08A04B` | Recettes, soldes positifs |
+| `background` | `#F5F7FA` | Fond de page |
+| `surface` | `#FFFFFF` | Cartes, panneaux |
+| `on-surface` | `#000000` | Texte principal |
 
 ---
 
-## 3. Typographie
+## 3. Logo
+
+- Fichier source : `DGTCP.png` (racine projet)
+- Déployé dans : `public/images/dgtcp-logo.png`
+- Utilisé dans : sidebar, page de connexion, première connexion
+- Taille sidebar : max 52px de hauteur
+- Taille login : max 88px de hauteur
+
+---
+
+## 4. Typographie
 
 | Élément | Style |
 |---------|-------|
 | Police | **Public Sans** ou **Roboto** (déjà dans le template) |
-| Titres de page | 1.25rem, weight 600, couleur `on-surface` |
-| Sous-titres | 0.875rem, weight 400, couleur `secondary` |
+| Titres de page | 1.25rem, weight 600, couleur `#000000` |
+| Sous-titres | 0.875rem, weight 400, couleur `#374151` |
 | KPI — valeur | 1.75rem, weight 600, tabular-nums |
-| KPI — label | 0.75rem, uppercase, letter-spacing 0.04em, `secondary` |
+| KPI — label | 0.75rem, uppercase, letter-spacing 0.04em, gris foncé |
 | Tableaux | 0.8125rem, tabular-nums pour les montants |
 | Montants | Toujours `font-variant-numeric: tabular-nums`, alignés à droite |
 
 ---
 
-## 4. Grille et espacements
+## 5. Grille et espacements
 
-- **Largeur contenu** : pleine largeur (`ContentWidth.Fluid`), pas de boxed centré étroit
+- **Largeur contenu** : pleine largeur (`ContentWidth.Fluid`)
 - **Padding page** : 24px desktop, 16px mobile
 - **Gap entre sections** : 24px
 - **Cartes KPI** : grille responsive `cols="12" sm="6" lg="3"`
-- **Pas d'élévation** excessive : `elevation="0"` + bordure `1px solid border`
+- **Pas d'élévation** excessive : `elevation="0"` + bordure `1px solid #DDE3EA`
 
 ---
 
-## 5. Composants standards
+## 6. Composants standards
 
 ### Carte KPI (`KpiStat`)
 
-```
-┌─────────────────────────────┐
-│ RECETTES                    │  ← label uppercase discret
-│ 1 234 567 890 FCFA          │  ← valeur, grande, tabular
-│ ▲ +4,2 % vs période prec.   │  ← variation optionnelle, petite
-└─────────────────────────────┘
-```
+- Bordure gauche colorée selon le type :
+  - `recettes` → vert `#08A04B`
+  - `depenses` → rouge `#E53935`
+  - `encaisse` → or `#E7C936`
+  - `solde` → vert institutionnel
+  - `neutral` → gris moyen
 
-- Fond blanc, bordure fine, pas d'icône décorative obligatoire
-- Variation en vert/rouge muted uniquement si pertinent
+### Barre de navigation
 
-### Barre de filtres (`PeriodToolbar`)
+- **Layout horizontal** (menu sous le header, pas de sidebar)
+- Fond blanc / surface neutre sur toute la barre
+- **Item actif** : fond vert `#08A04B`, texte blanc, barre Or en bas
+- **Survol** : fond vert léger `rgba(8, 160, 75, 0.1)`
+- **Sous-menu actif** : fond vert pâle + barre Or à gauche
 
-- Sélecteur région (si autorisé)
-- Année, mois, plage de dates
-- Bouton « Actualiser » discret (outlined, pas de couleur vive)
-- Alignement horizontal, fond `surface`, bordure basse
+### Barre latérale (legacy)
 
-### Tableaux de données
+- Non utilisée en v2 — conservée uniquement si bascule verticale via customizer
 
-- `VDataTableServer` avec en-têtes fond `#F8FAFC`
-- Lignes zébrées très légères ou sans zébrage
-- Pagination sobre en bas
-- Pas de chips colorés sauf statuts métier (Payé, Admis, Rejeté)
+### Hero dashboard (`.aice-hero`)
+
+- Dégradé vert institutionnel `#08A04B` → `#067A39` → `#045E2C`
+- Accent lumineux Or en haut à droite
 
 ### Graphiques
 
-- **Chart.js** en priorité (courbes, barres simples)
-- Maximum 3 couleurs par graphique
-- Pas de fond transparent avec grille agressive
-- Légende sous le graphique, pas flottante
+- **Chart.js** — palette : vert, gris foncé, or, rouge, gris moyen
+- Maximum 4 couleurs par graphique
 
 ---
 
-## 6. Navigation
+## 7. Navigation
 
-Structure sidebar verticale :
-
-```
-Tableau de bord
-  └ Régional
-  └ Central
-  └ Exécutif
-Données
-  └ Mandats
-  └ Recettes
-  └ Banques
-  └ Programmes
-Administration (si autorisé)
-  └ Utilisateurs
-  └ Rôles
-  └ Régions
-```
-
-- Icônes Tabler minimalistes (`tabler-chart-bar`, `tabler-file-text`…)
-- Pas de badges numériques décoratifs
-- Section active : barre latérale `primary`, fond légèrement teinté
-
----
-
-## 7. En-tête application
+Menu horizontal sous le logo :
 
 ```
-[Logo DGTCP]  Dashboard de la Trésorerie     [Région: Kayes ▾]  [Utilisateur ▾]
+[Logo DGTCP]                                    [Langue] [Profil]
+Tableau de bord ▾ | Données ▾ | Administration ▾
 ```
 
-- Fond blanc, ombre très légère ou bordure basse uniquement
-- Titre institutionnel, pas le nom du template
+- Groupes : Tableau de bord, Données, Administration
+- Item actif : vert + accent Or
+- Survol : teinte verte légère
 
 ---
 
 ## 8. Formulaires et actions
 
 - Champs : `variant="outlined"`, `density="compact"`
-- Bouton principal : `color="primary"`, `variant="flat"`, sans ombre
+- Bouton principal : `color="primary"` (vert), `variant="flat"`
+- Bouton suppression : `color="error"` (rouge République)
 - Bouton secondaire : `variant="outlined"`, `color="secondary"`
-- Pas de boutons dégradés
 
 ---
 
-## 9. États vides et chargement
-
-- **Chargement** : skeleton gris discret, pas de spinner coloré plein écran
-- **Vide** : message texte simple + action suggérée, pas d'illustration SVG marketing
-- **Erreur** : alerte `VAlert` `type="error"` `variant="tonal"`, texte explicite
-
----
-
-## 10. Références visuelles (inspiration, pas copie)
-
-- Portails OpenGov / dashboards trésor publics (UK GDS, France data.gouv style sobre)
-- Rapports annuels institutionnels : hiérarchie typographique claire
-- **Anti-références** : dashboards SaaS colorés, templates « AI analytics », Dribbble fintech neon
-
----
-
-## 11. Fichiers de configuration
+## 9. Fichiers de configuration
 
 | Fichier | Rôle |
 |---------|------|
-| `themeConfig.ts` | Titre app, layout, locale FR par défaut |
-| `plugins/vuetify/theme.ts` | Palette institutionnelle |
-| `plugins/vuetify/defaults.ts` | Variants plats, outlined |
-| `resources/styles/aice/` | Styles métier DGTCP |
+| `themeConfig.ts` | Logo image, layout, locale FR |
+| `plugins/vuetify/theme.ts` | Palette DGTCP + export `dgtcpColors` |
+| `resources/styles/styles.scss` | Sidebar verte, logo |
+| `resources/styles/aice/` | Hero, explorer, composants métier |
+| `public/images/dgtcp-logo.png` | Logo officiel |
 | `components/aice/` | Composants réutilisables métier |
 
 ---
 
-*Version 1.0 — juin 2026*
+*Version 2.0 — juin 2026 — Charte officielle DGTCP*

@@ -1,16 +1,76 @@
 // Overrides DGTCP — styles institutionnels
 @import './aice/index';
 
-.dgtcp-logo {
-  align-items: center;
-  display: flex;
-  line-height: 1;
+// ─── Logo ───────────────────────────────────────────────────────────────────
+.dgtcp-logo__img {
+  block-size: auto;
+  display: block;
+  max-block-size: 48px;
+  max-inline-size: 100%;
+  object-fit: contain;
+}
 
-  &__mark {
-    color: rgb(var(--v-theme-primary));
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+// ─── Menu horizontal — fond neutre, vert sur actif / hover ───────────────────
+.layout-horizontal-nav {
+  background: rgb(var(--v-theme-surface)) !important;
+
+  // Survol (transition)
+  .nav-link:not(.sub-item) > a:not(.router-link-active, .router-link-exact-active) {
+    transition: background-color 0.2s ease, color 0.2s ease;
+
+    &:hover::before {
+      background: rgba(8, 160, 75, 0.1) !important;
+      opacity: 1 !important;
+    }
+  }
+
+  .nav-group:not(.sub-item):not(.active) > .popper-triggerer > .nav-group-label {
+    transition: background-color 0.2s ease, color 0.2s ease;
+
+    &:hover::before {
+      background: rgba(8, 160, 75, 0.1) !important;
+      opacity: 1 !important;
+    }
+  }
+
+  // Item actif (niveau principal)
+  .nav-link:not(.sub-item) > a.router-link-active,
+  .nav-link:not(.sub-item) > a.router-link-exact-active {
+    background: #08a04b !important;
+    box-shadow: inset 0 -3px 0 #e7c936 !important;
+    color: #fff !important;
+
+    .nav-item-icon {
+      color: #fff !important;
+    }
+  }
+
+  .nav-group:not(.sub-item).active > .popper-triggerer > .nav-group-label {
+    background: #08a04b !important;
+    box-shadow: inset 0 -3px 0 #e7c936 !important;
+    color: #fff !important;
+
+    .nav-item-icon,
+    .nav-group-arrow {
+      color: #fff !important;
+    }
+  }
+
+  // Sous-menus (dropdown)
+  .nav-link.sub-item > a {
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      background: rgba(8, 160, 75, 0.06);
+    }
+
+    &.router-link-active,
+    &.router-link-exact-active {
+      background: rgba(8, 160, 75, 0.1) !important;
+      box-shadow: inset 3px 0 0 #e7c936;
+      color: #067a39 !important;
+      font-weight: 600;
+    }
   }
 }
 

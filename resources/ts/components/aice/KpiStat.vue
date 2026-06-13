@@ -74,8 +74,16 @@ const emit = defineEmits<{ select: [] }>()
     border-inline-start-color: rgb(var(--v-theme-error));
   }
 
-  &--neutral {
+  &--solde {
     border-inline-start-color: rgb(var(--v-theme-primary));
+  }
+
+  &--encaisse {
+    border-inline-start-color: rgb(var(--v-theme-warning));
+  }
+
+  &--neutral {
+    border-inline-start-color: rgb(var(--v-theme-grey-300));
   }
 
   &--selectable {
@@ -84,7 +92,7 @@ const emit = defineEmits<{ select: [] }>()
 
     &:hover {
       background: rgb(var(--v-theme-grey-50));
-      box-shadow: 0 6px 20px rgba(30, 58, 95, 0.08);
+      box-shadow: 0 6px 20px rgba(8, 160, 75, 0.1);
       transform: translateY(-1px);
     }
   }

@@ -81,7 +81,11 @@ const onSubmit = () => {
   <div class="aice-login">
     <div class="aice-login__panel">
       <div class="aice-login__brand">
-        <span class="aice-login__mark">DGTCP</span>
+        <img
+          src="/images/dgtcp-logo.png"
+          alt="DGTCP"
+          class="aice-login__logo"
+        >
         <p class="aice-login__org">
           Configuration du compte — première connexion
         </p>
@@ -174,11 +178,13 @@ const onSubmit = () => {
   text-align: center;
 }
 
-.aice-login__mark {
-  color: rgb(var(--v-theme-primary));
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+.aice-login__logo {
+  block-size: auto;
+  display: inline-block;
+  margin-inline: auto;
+  max-block-size: 88px;
+  max-inline-size: 100%;
+  object-fit: contain;
 }
 
 .aice-login__org {

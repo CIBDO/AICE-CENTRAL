@@ -69,8 +69,8 @@ const fluxChart = computed(() => {
   return {
     labels: rows.map(r => r.date),
     datasets: [
-      { label: 'Crédits', data: rows.map(r => r.credit ?? 0), backgroundColor: '#276749' },
-      { label: 'Débits', data: rows.map(r => r.debit ?? 0), backgroundColor: '#C53030' },
+      { label: 'Crédits', data: rows.map(r => r.credit ?? 0), backgroundColor: '#08A04B' },
+      { label: 'Débits', data: rows.map(r => r.debit ?? 0), backgroundColor: '#E53935' },
     ],
   }
 })

@@ -7,7 +7,7 @@ export const layoutConfig: LayoutConfig = {
     title: 'my-layout',
     logo: h('img', { src: '/src/assets/logo.svg' }),
     contentWidth: ContentWidth.Boxed,
-    contentLayoutNav: AppContentLayoutNav.Vertical,
+    contentLayoutNav: AppContentLayoutNav.Horizontal,
     overlayNavFromBreakpoint: breakpointsVuetify.md,
 
     // isRTL: false,

@@ -13,8 +13,8 @@ const chartData = computed(() => ({
   datasets: [{
     label: props.label ?? 'Montant',
     data: props.data,
-    borderColor: '#1E3A5F',
-    backgroundColor: 'rgba(30, 58, 95, 0.12)',
+    borderColor: '#08A04B',
+    backgroundColor: 'rgba(8, 160, 75, 0.12)',
     fill: true,
     tension: 0.35,
     pointRadius: 2,

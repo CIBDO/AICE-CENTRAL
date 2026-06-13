@@ -7,7 +7,7 @@
 
 // ─── Hero band (dashboards) ───────────────────────────────────────────────
 .aice-hero {
-  background: linear-gradient(135deg, #1e3a5f 0%, #152a45 55%, #0f2035 100%);
+  background: linear-gradient(135deg, #08a04b 0%, #067a39 50%, #045e2c 100%);
   border-radius: 12px;
   color: #fff;
   margin-block-end: 1.75rem;
@@ -16,7 +16,9 @@
   position: relative;
 
   &::before {
-    background: radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.08) 0%, transparent 55%);
+    background:
+      radial-gradient(circle at 90% 10%, rgba(231, 201, 54, 0.18) 0%, transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.08) 0%, transparent 55%);
     content: "";
     inset: 0;
     pointer-events: none;
@@ -148,7 +150,7 @@
   margin-block-end: 1.25rem;
   padding: 0.75rem 1rem;
   position: sticky;
-  inset-block-start: 4.5rem;
+  inset-block-start: 7.5rem;
   z-index: 4;
 }
 
@@ -171,7 +173,7 @@
 
   &:hover {
     border-color: rgb(var(--v-theme-primary));
-    box-shadow: 0 8px 24px rgba(30, 58, 95, 0.1);
+    box-shadow: 0 8px 24px rgba(8, 160, 75, 0.12);
     transform: translateY(-2px);
   }
 

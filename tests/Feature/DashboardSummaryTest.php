@@ -43,4 +43,60 @@ class DashboardSummaryTest extends TestCase
         $response->assertJsonPath('data.kpis.total_recettes', 1000);
         $response->assertJsonPath('data.region.code', 'RGF');
     }
+
+    public function test_summary_returns_kpis_for_date_range(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $region = Region::create([
+            'code' => 'SAN',
+            'nom' => 'SAN',
+            'actif' => true,
+            'token' => 'token-san',
+            'source_type' => 'api',
+        ]);
+
+        $dashboard = Dashboard::create([
+            'region_id' => $region->id,
+            'local_id' => 'SAN',
+            'regional_id' => 'DASH-SAN-2024',
+            'total_recettes' => 9999,
+            'total_depenses' => 9999,
+            'solde' => 0,
+            'encaisse' => 100,
+            'annee' => 2024,
+            'mois' => null,
+        ]);
+
+        $dashboard->mouvements()->create([
+            'regional_id' => 'SAN-M-1',
+            'libelle' => 'Recette test',
+            'montant' => 500,
+            'type' => 'recette',
+            'date_mouvement' => '2024-06-15',
+            'annee' => 2024,
+            'mois' => 6,
+            'statut' => 'Payé',
+        ]);
+
+        $dashboard->mouvements()->create([
+            'regional_id' => 'SAN-M-2',
+            'libelle' => 'Dépense test',
+            'montant' => 200,
+            'type' => 'depense',
+            'date_mouvement' => '2024-06-20',
+            'annee' => 2024,
+            'mois' => 6,
+            'statut' => 'Admis',
+            'type_mandat' => '1',
+        ]);
+
+        $response = $this->getJson('/api/v1/dashboards/summary?region_code=SAN&date_debut=2024-06-01&date_fin=2024-06-30');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.kpis.total_recettes', 500);
+        $response->assertJsonPath('data.kpis.total_depenses', 200);
+        $response->assertJsonPath('data.kpis.solde', 300);
+        $response->assertJsonPath('data.meta.mouvements_count', 2);
+    }
 }

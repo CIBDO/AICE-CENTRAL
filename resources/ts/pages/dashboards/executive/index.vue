@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import type { KpiAccent } from '@/types/dashboard'
-import DashboardHero from '@/components/aice/DashboardHero.vue'
+import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import AlertList from '@/components/aice/AlertList.vue'
-import { formatDateFr, formatFcfa, formatMonthYear, formatPercent } from '@/composables/useFormat'
+import { endOfMonth, formatDateFr, formatDateRange, formatFcfa, formatPercent, startOfMonth } from '@/composables/useFormat'
 import { useExecutiveDashboard } from '@/composables/useExecutiveDashboard'
 
 definePage({ meta: { layout: 'default' } })
 
-const annee = ref(new Date().getFullYear())
-const mois = ref<number | null>(new Date().getMonth() + 1)
+const dateDebut = ref(startOfMonth())
+const dateFin = ref(endOfMonth())
 
 const { loading, error, kpis, alertes, anomalies, predictions, fetchAll } = useExecutiveDashboard()
 
-const periodLabel = computed(() => formatMonthYear(annee.value, mois.value))
-
+const periodLabel = computed(() => formatDateRange(dateDebut.value, dateFin.value))
 const lastUpdate = computed(() => formatDateFr(kpis.value?.meta.derniere_mise_a_jour))
+const hasData = computed(() => (kpis.value?.meta.regions_avec_donnees ?? 0) > 0)
 
 const heroStats = computed(() => {
   const ind = kpis.value?.indicateurs
@@ -67,42 +67,58 @@ const alertesResume = computed(() => ({
 }))
 
 async function loadDashboard() {
-  await fetchAll({ annee: annee.value, mois: mois.value })
+  if (dateDebut.value && dateFin.value && dateDebut.value > dateFin.value)
+    return
+
+  await fetchAll({
+    date_debut: dateDebut.value,
+    date_fin: dateFin.value,
+  })
 }
 
-watch([annee, mois], () => loadDashboard())
+watch([dateDebut, dateFin], () => loadDashboard())
 
 onMounted(() => loadDashboard())
 </script>
 
 <template>
-  <div class="aice-page">
-    <DashboardHero
+  <div class="aice-page aice-executive-dashboard">
+    <ExplorerHero
+      icon="tabler-chart-line"
       title="Tableau de bord exécutif"
       subtitle="Indicateurs stratégiques, alertes et synthèse nationale."
-      :meta="kpis?.meta.derniere_mise_a_jour ? `MAJ ${lastUpdate}` : null"
+      class="aice-dashboard-hero"
       :stats="heroStats"
-    />
+    >
+      <template #below>
+        <div
+          v-if="kpis?.meta.derniere_mise_a_jour"
+          class="aice-dashboard-hero__meta"
+        >
+          MAJ {{ lastUpdate }}
+        </div>
+      </template>
+    </ExplorerHero>
 
     <div class="aice-sticky-toolbar">
       <div class="d-flex flex-wrap align-center gap-3">
-        <VSelect
-          v-model="annee"
-          :items="[annee, annee - 1, annee - 2, annee - 3, annee - 4, annee - 5]"
-          label="Année"
+        <VTextField
+          v-model="dateDebut"
+          label="Date début"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 100px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
-        <VSelect
-          v-model="mois"
-          :items="Array.from({ length: 12 }, (_, i) => ({ title: new Date(2024, i).toLocaleString('fr-FR', { month: 'long' }), value: i + 1 }))"
-          item-title="title"
-          item-value="value"
-          label="Mois"
+        <VTextField
+          v-model="dateFin"
+          label="Date fin"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 150px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
         <VSpacer />
         <VBtn
@@ -126,6 +142,17 @@ onMounted(() => loadDashboard())
       density="compact"
     >
       {{ error }}
+    </VAlert>
+
+    <VAlert
+      v-else-if="!loading && !hasData"
+      type="info"
+      variant="tonal"
+      class="mb-4"
+      density="compact"
+    >
+      Aucune donnée nationale entre le {{ periodLabel }}.
+      Élargissez la plage de dates si les données proviennent d'une autre période.
     </VAlert>
 
     <VRow v-if="loading">
@@ -198,13 +225,13 @@ onMounted(() => loadDashboard())
               v-if="predictions.tendance_depenses.evolution_pct !== null"
               class="aice-trend-block__evolution"
             >
-              {{ predictions.tendance_depenses.evolution_pct > 0 ? '+' : '' }}{{ predictions.tendance_depenses.evolution_pct }} % vs mois précédent
+              {{ predictions.tendance_depenses.evolution_pct > 0 ? '+' : '' }}{{ predictions.tendance_depenses.evolution_pct }} % vs période précédente
             </p>
 
             <VDivider class="my-4" />
 
             <p class="aice-trend-block__label">
-              Projection fin de mois
+              Projection fin de période
             </p>
             <p class="aice-trend-block__amount tabular-nums">
               {{ formatFcfa(predictions.projection_depenses_fin_mois) }}

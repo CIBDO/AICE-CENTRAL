@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import type { KpiAccent } from '@/types/dashboard'
-import DashboardHero from '@/components/aice/DashboardHero.vue'
+import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
-import { formatDateFr, formatFcfa, formatMonthYear } from '@/composables/useFormat'
+import { endOfMonth, formatDateFr, formatDateRange, formatFcfa, startOfMonth } from '@/composables/useFormat'
 import { useDashboardSummary } from '@/composables/useDashboardSummary'
 import { useRegions } from '@/composables/useRegions'
 
 definePage({ meta: { layout: 'default' } })
 
 const selectedRegion = ref<string | null>(null)
-const annee = ref(new Date().getFullYear())
-const mois = ref<number | null>(new Date().getMonth() + 1)
+const dateDebut = ref(startOfMonth())
+const dateFin = ref(endOfMonth())
 
 const { loading, error, summary, fetchSummary } = useDashboardSummary()
 const { loading: regionsLoading, regions, fetchRegions } = useRegions()
@@ -47,13 +47,14 @@ const heroStats = computed(() => {
     return []
   return [
     { label: 'Mouvements', value: (summary.value.meta.mouvements_count ?? 0).toLocaleString('fr-FR') },
-    { label: 'Période', value: formatMonthYear(annee.value, mois.value) },
+    { label: 'Période', value: periodLabel.value },
   ]
 })
 
 const regionLabel = computed(() => summary.value ? `${summary.value.region.nom} (${summary.value.region.code})` : null)
-const periodLabel = computed(() => formatMonthYear(annee.value, mois.value))
+const periodLabel = computed(() => formatDateRange(dateDebut.value, dateFin.value))
 const lastUpdate = computed(() => formatDateFr(summary.value?.meta.derniere_mise_a_jour))
+const hasData = computed(() => (summary.value?.meta.mouvements_count ?? 0) > 0)
 
 const statutsChart = computed(() => ({
   labels: summary.value?.statuts_mandats.map(r => r.statut) ?? [],
@@ -65,15 +66,22 @@ const mandatsTypeChart = computed(() => ({
   datasets: [{ label: 'Montant (FCFA)', data: summary.value?.mandats_par_type.map(r => r.montant) ?? [] }],
 }))
 
-const hasChartData = computed(() => (summary.value?.meta.mouvements_count ?? 0) > 0)
-
 async function loadDashboard() {
-  await fetchSummary({ region_code: selectedRegion.value ?? undefined, annee: annee.value, mois: mois.value })
+  if (dateDebut.value && dateFin.value && dateDebut.value > dateFin.value)
+    return
+
+  await fetchSummary({
+    region_code: selectedRegion.value ?? undefined,
+    date_debut: dateDebut.value,
+    date_fin: dateFin.value,
+  })
+
   if (!selectedRegion.value && summary.value?.region.code)
     selectedRegion.value = summary.value.region.code
 }
 
-watch([selectedRegion, annee, mois], () => loadDashboard())
+watch([selectedRegion, dateDebut, dateFin], () => loadDashboard())
+
 onMounted(async () => {
   await fetchRegions()
   if (regions.value.length)
@@ -83,13 +91,23 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="aice-page">
-    <DashboardHero
+  <div class="aice-page aice-regional-dashboard">
+    <ExplorerHero
+      icon="tabler-chart-bar"
       title="Tableau de bord régional"
       subtitle="Synthèse des mouvements, mandats et soldes de trésorerie — données Push en temps réel."
-      :meta="regionLabel ? `${regionLabel}${lastUpdate ? ` · MAJ ${lastUpdate}` : ''}` : null"
+      class="aice-dashboard-hero"
       :stats="heroStats"
-    />
+    >
+      <template #below>
+        <div
+          v-if="regionLabel"
+          class="aice-dashboard-hero__meta"
+        >
+          {{ regionLabel }}{{ lastUpdate ? ` · MAJ ${lastUpdate}` : '' }}
+        </div>
+      </template>
+    </ExplorerHero>
 
     <QuickLinkGrid :links="quickLinks" />
 
@@ -100,23 +118,23 @@ onMounted(async () => {
           :regions="regions"
           :loading="regionsLoading"
         />
-        <VSelect
-          v-model="annee"
-          :items="[annee, annee - 1, annee - 2]"
-          label="Année"
+        <VTextField
+          v-model="dateDebut"
+          label="Date début"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 100px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
-        <VSelect
-          v-model="mois"
-          :items="Array.from({ length: 12 }, (_, i) => ({ title: new Date(2024, i).toLocaleString('fr-FR', { month: 'long' }), value: i + 1 }))"
-          item-title="title"
-          item-value="value"
-          label="Mois"
+        <VTextField
+          v-model="dateFin"
+          label="Date fin"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 150px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
         <VSpacer />
         <VBtn
@@ -140,6 +158,17 @@ onMounted(async () => {
       density="compact"
     >
       {{ error }}
+    </VAlert>
+
+    <VAlert
+      v-else-if="!loading && !hasData"
+      type="info"
+      variant="tonal"
+      class="mb-4"
+      density="compact"
+    >
+      Aucune donnée pour {{ regionLabel ?? 'cette région' }} entre le {{ periodLabel }}.
+      Élargissez la plage de dates si les données proviennent d'une autre période.
     </VAlert>
 
     <VRow
@@ -187,7 +216,7 @@ onMounted(async () => {
           :subtitle="periodLabel"
         >
           <ChartWidget
-            v-if="hasChartData && statutsChart.labels.length"
+            v-if="hasData && statutsChart.labels.length"
             type="doughnut"
             :labels="statutsChart.labels"
             :datasets="statutsChart.datasets"
@@ -210,7 +239,7 @@ onMounted(async () => {
           subtitle="Matériel · Salaire · Reversement"
         >
           <ChartWidget
-            v-if="hasChartData && mandatsTypeChart.labels.length"
+            v-if="hasData && mandatsTypeChart.labels.length"
             type="bar"
             :labels="mandatsTypeChart.labels"
             :datasets="mandatsTypeChart.datasets"

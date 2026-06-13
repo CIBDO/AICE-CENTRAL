@@ -18,7 +18,12 @@ class ExecutiveController extends Controller
 
         return response()->json([
             'status' => 'OK',
-            'data' => $this->service->kpis($validated['annee'] ?? null, $validated['mois'] ?? null),
+            'data' => $this->service->kpis(
+                $validated['annee'] ?? null,
+                $validated['mois'] ?? null,
+                $validated['date_debut'] ?? null,
+                $validated['date_fin'] ?? null,
+            ),
         ]);
     }
 
@@ -28,7 +33,12 @@ class ExecutiveController extends Controller
 
         return response()->json([
             'status' => 'OK',
-            'data' => $this->service->alertes($validated['annee'] ?? null, $validated['mois'] ?? null),
+            'data' => $this->service->alertes(
+                $validated['annee'] ?? null,
+                $validated['mois'] ?? null,
+                $validated['date_debut'] ?? null,
+                $validated['date_fin'] ?? null,
+            ),
         ]);
     }
 
@@ -38,7 +48,12 @@ class ExecutiveController extends Controller
 
         return response()->json([
             'status' => 'OK',
-            'data' => $this->service->anomalies($validated['annee'] ?? null, $validated['mois'] ?? null),
+            'data' => $this->service->anomalies(
+                $validated['annee'] ?? null,
+                $validated['mois'] ?? null,
+                $validated['date_debut'] ?? null,
+                $validated['date_fin'] ?? null,
+            ),
         ]);
     }
 
@@ -48,16 +63,23 @@ class ExecutiveController extends Controller
 
         return response()->json([
             'status' => 'OK',
-            'data' => $this->service->predictions($validated['annee'] ?? null, $validated['mois'] ?? null),
+            'data' => $this->service->predictions(
+                $validated['annee'] ?? null,
+                $validated['mois'] ?? null,
+                $validated['date_debut'] ?? null,
+                $validated['date_fin'] ?? null,
+            ),
         ]);
     }
 
-    /** @return array<string, int|null> */
+    /** @return array<string, int|string|null> */
     private function validatedPeriod(Request $request): array
     {
         return $request->validate([
             'annee' => 'nullable|integer|min:2000|max:2100',
             'mois' => 'nullable|integer|min:1|max:12',
+            'date_debut' => 'nullable|date',
+            'date_fin' => 'nullable|date|after_or_equal:date_debut',
         ]);
     }
 }

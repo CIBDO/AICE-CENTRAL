@@ -17,11 +17,15 @@ class CentralSummaryController extends Controller
         $validated = $request->validate([
             'annee' => 'nullable|integer|min:2000|max:2100',
             'mois' => 'nullable|integer|min:1|max:12',
+            'date_debut' => 'nullable|date',
+            'date_fin' => 'nullable|date|after_or_equal:date_debut',
         ]);
 
         $summary = $this->service->summary(
             $validated['annee'] ?? null,
             isset($validated['mois']) ? (int) $validated['mois'] : null,
+            $validated['date_debut'] ?? null,
+            $validated['date_fin'] ?? null,
         );
 
         return response()->json([

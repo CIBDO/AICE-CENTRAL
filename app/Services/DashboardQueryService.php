@@ -12,9 +12,19 @@ class DashboardQueryService
     /**
      * @return array<string, mixed>
      */
-    public function summary(?string $regionCode, ?int $annee = null, ?int $mois = null): array
-    {
+    public function summary(
+        ?string $regionCode,
+        ?int $annee = null,
+        ?int $mois = null,
+        ?string $dateDebut = null,
+        ?string $dateFin = null,
+    ): array {
         $region = $this->resolveRegion($regionCode);
+
+        if ($dateDebut !== null) {
+            return $this->summaryForDateRange($region, $dateDebut, $dateFin ?? $dateDebut);
+        }
+
         $dashboard = $this->resolveDashboard($region, $annee, $mois);
 
         if (!$dashboard) {
@@ -23,17 +33,85 @@ class DashboardQueryService
 
         $mouvements = $this->mouvementsForDashboard($dashboard, $annee, $mois);
 
+        return $this->buildSummary(
+            $region,
+            $dashboard,
+            $mouvements,
+            [
+                'annee' => $annee ?? $dashboard->annee,
+                'mois' => $mois ?? $dashboard->mois,
+                'date_debut' => optional($dashboard->date_debut)?->toDateString(),
+                'date_fin' => optional($dashboard->date_fin)?->toDateString(),
+            ],
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function summaryForDateRange(Region $region, string $dateDebut, string $dateFin): array
+    {
+        $dashboardIds = Dashboard::query()
+            ->where('region_id', $region->id)
+            ->pluck('id');
+
+        $mouvements = Mouvement::query()
+            ->whereIn('dashboard_id', $dashboardIds)
+            ->whereBetween('date_mouvement', [$dateDebut, $dateFin])
+            ->get();
+
+        if ($mouvements->isEmpty()) {
+            return $this->emptySummary($region, $dateDebut, $dateFin);
+        }
+
+        $recettes = (float) $mouvements->where('type', 'recette')->sum('montant');
+        $depenses = (float) $mouvements->where('type', 'depense')->sum('montant');
+
+        $latestDashboard = Dashboard::query()
+            ->where('region_id', $region->id)
+            ->orderByDesc('updated_at')
+            ->first();
+
         return [
             'region' => [
                 'code' => $region->code,
                 'nom' => $region->nom,
             ],
             'periode' => [
-                'annee' => $annee ?? $dashboard->annee,
-                'mois' => $mois ?? $dashboard->mois,
-                'date_debut' => optional($dashboard->date_debut)?->toDateString(),
-                'date_fin' => optional($dashboard->date_fin)?->toDateString(),
+                'annee' => (int) substr($dateDebut, 0, 4),
+                'mois' => null,
+                'date_debut' => $dateDebut,
+                'date_fin' => $dateFin,
             ],
+            'kpis' => [
+                'total_recettes' => $recettes,
+                'total_depenses' => $depenses,
+                'solde' => $recettes - $depenses,
+                'encaisse' => $latestDashboard ? (float) $latestDashboard->encaisse : 0,
+            ],
+            'mandats_par_type' => $this->mandatsParType($mouvements),
+            'statuts_mandats' => $this->statutsMandats($mouvements),
+            'meta' => [
+                'dashboard_id' => $latestDashboard?->id,
+                'regional_id' => $latestDashboard?->regional_id,
+                'derniere_mise_a_jour' => $latestDashboard?->updated_at?->toIso8601String(),
+                'mouvements_count' => $mouvements->count(),
+            ],
+        ];
+    }
+
+    /**
+     * @param  array{annee: int|null, mois: int|null, date_debut: string|null, date_fin: string|null}  $periode
+     * @return array<string, mixed>
+     */
+    private function buildSummary(Region $region, Dashboard $dashboard, Collection $mouvements, array $periode): array
+    {
+        return [
+            'region' => [
+                'code' => $region->code,
+                'nom' => $region->nom,
+            ],
+            'periode' => $periode,
             'kpis' => [
                 'total_recettes' => (float) $dashboard->total_recettes,
                 'total_depenses' => (float) $dashboard->total_depenses,
@@ -84,10 +162,24 @@ class DashboardQueryService
         }
 
         if ($mois !== null) {
-            $query->where('mois', $mois);
+            $query->where(function ($q) use ($mois) {
+                $q->where('mois', $mois)->orWhereNull('mois');
+            });
         }
 
-        return $query->first();
+        $dashboard = $query->first();
+
+        if (!$dashboard || $mois === null || $dashboard->mois !== null) {
+            return $dashboard;
+        }
+
+        $mouvementsCount = Mouvement::query()
+            ->where('dashboard_id', $dashboard->id)
+            ->where('mois', $mois)
+            ->when($annee !== null, fn ($q) => $q->where('annee', $annee))
+            ->count();
+
+        return $mouvementsCount > 0 ? $dashboard : null;
     }
 
     /** @return Collection<int, Mouvement> */
@@ -148,18 +240,21 @@ class DashboardQueryService
     }
 
     /** @return array<string, mixed> */
-    private function emptySummary(Region $region): array
-    {
+    private function emptySummary(
+        Region $region,
+        ?string $dateDebut = null,
+        ?string $dateFin = null,
+    ): array {
         return [
             'region' => [
                 'code' => $region->code,
                 'nom' => $region->nom,
             ],
             'periode' => [
-                'annee' => null,
+                'annee' => $dateDebut ? (int) substr($dateDebut, 0, 4) : null,
                 'mois' => null,
-                'date_debut' => null,
-                'date_fin' => null,
+                'date_debut' => $dateDebut,
+                'date_fin' => $dateFin,
             ],
             'kpis' => [
                 'total_recettes' => 0,

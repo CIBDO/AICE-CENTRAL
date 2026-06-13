@@ -67,6 +67,8 @@ export interface CentralSummary {
   periode: {
     annee: number | null
     mois: number | null
+    date_debut?: string | null
+    date_fin?: string | null
   }
   global: DashboardKpis
   regions: CentralRegionRow[]
@@ -97,7 +99,7 @@ export interface ExecutiveAnomaly {
 }
 
 export interface ExecutiveKpis {
-  periode: { annee: number; mois: number }
+  periode: { annee: number; mois: number | null; date_debut?: string | null; date_fin?: string | null }
   indicateurs: {
     taux_execution: number
     taux_rejet: number

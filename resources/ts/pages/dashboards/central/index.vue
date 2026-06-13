@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import DashboardHero from '@/components/aice/DashboardHero.vue'
+import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
 import type { KpiAccent } from '@/types/dashboard'
-import { formatDateFr, formatFcfa, formatMonthYear } from '@/composables/useFormat'
+import { endOfMonth, formatDateFr, formatDateRange, formatFcfa, startOfMonth } from '@/composables/useFormat'
 import { useCentralSummary } from '@/composables/useCentralSummary'
 
 definePage({ meta: { layout: 'default' } })
 
-const annee = ref(new Date().getFullYear())
-const mois = ref<number | null>(new Date().getMonth() + 1)
+const dateDebut = ref(startOfMonth())
+const dateFin = ref(endOfMonth())
 
 const { loading, error, summary, fetchSummary } = useCentralSummary()
 
@@ -18,9 +18,9 @@ const quickLinks = [
   { title: 'Mandats', hint: 'Explorateur interactif', icon: 'tabler-file-invoice', to: { name: 'details-mandats' } },
 ]
 
-const periodLabel = computed(() => formatMonthYear(annee.value, mois.value))
-
+const periodLabel = computed(() => formatDateRange(dateDebut.value, dateFin.value))
 const lastUpdate = computed(() => formatDateFr(summary.value?.meta.derniere_mise_a_jour))
+const hasData = computed(() => (summary.value?.meta.regions_avec_donnees ?? 0) > 0)
 
 const heroStats = computed(() => {
   if (!summary.value) {
@@ -67,44 +67,60 @@ const recettesChart = computed(() => {
 })
 
 async function loadDashboard() {
-  await fetchSummary({ annee: annee.value, mois: mois.value })
+  if (dateDebut.value && dateFin.value && dateDebut.value > dateFin.value)
+    return
+
+  await fetchSummary({
+    date_debut: dateDebut.value,
+    date_fin: dateFin.value,
+  })
 }
 
-watch([annee, mois], () => loadDashboard())
+watch([dateDebut, dateFin], () => loadDashboard())
 
 onMounted(() => loadDashboard())
 </script>
 
 <template>
-  <div class="aice-page">
-    <DashboardHero
+  <div class="aice-page aice-central-dashboard">
+    <ExplorerHero
+      icon="tabler-chart-dots-3"
       title="Tableau de bord central"
       subtitle="Vue agrégée de toutes les régions actives."
-      :meta="summary?.meta.derniere_mise_a_jour ? `MAJ ${lastUpdate}` : null"
+      class="aice-dashboard-hero"
       :stats="heroStats"
-    />
+    >
+      <template #below>
+        <div
+          v-if="summary?.meta.derniere_mise_a_jour"
+          class="aice-dashboard-hero__meta"
+        >
+          MAJ {{ lastUpdate }}
+        </div>
+      </template>
+    </ExplorerHero>
 
     <QuickLinkGrid :links="quickLinks" />
 
     <div class="aice-sticky-toolbar">
       <div class="d-flex flex-wrap align-center gap-3">
-        <VSelect
-          v-model="annee"
-          :items="[annee, annee - 1, annee - 2, annee - 3, annee - 4, annee - 5]"
-          label="Année"
+        <VTextField
+          v-model="dateDebut"
+          label="Date début"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 100px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
-        <VSelect
-          v-model="mois"
-          :items="Array.from({ length: 12 }, (_, i) => ({ title: new Date(2024, i).toLocaleString('fr-FR', { month: 'long' }), value: i + 1 }))"
-          item-title="title"
-          item-value="value"
-          label="Mois"
+        <VTextField
+          v-model="dateFin"
+          label="Date fin"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 150px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
         <VSpacer />
         <VBtn
@@ -130,12 +146,16 @@ onMounted(() => loadDashboard())
       {{ error }}
     </VAlert>
 
-    <div
-      v-if="!loading && summary && summary.meta.regions_avec_donnees === 0"
-      class="aice-empty-banner mb-4"
+    <VAlert
+      v-else-if="!loading && !hasData"
+      type="info"
+      variant="tonal"
+      class="mb-4"
+      density="compact"
     >
-      Aucune donnée reçue pour {{ periodLabel }}. Les régions doivent pousser leurs données via l'API Push.
-    </div>
+      Aucune donnée reçue entre le {{ periodLabel }}.
+      Élargissez la plage de dates si les données proviennent d'une autre période.
+    </VAlert>
 
     <VRow v-if="loading">
       <VCol
@@ -252,15 +272,6 @@ onMounted(() => loadDashboard())
 </template>
 
 <style scoped lang="scss">
-.aice-empty-banner {
-  background: rgb(var(--v-theme-grey-50));
-  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 1));
-  border-inline-start: 3px solid rgb(var(--v-theme-warning));
-  font-size: 0.8125rem;
-  padding-block: 0.875rem;
-  padding-inline: 1rem;
-}
-
 .aice-simple-table {
   :deep(thead th) {
     background: rgb(var(--v-theme-grey-50));

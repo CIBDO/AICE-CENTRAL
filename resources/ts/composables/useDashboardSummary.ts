@@ -5,6 +5,8 @@ interface SummaryQuery {
   region_code?: string
   annee?: number
   mois?: number | null
+  date_debut?: string
+  date_fin?: string
 }
 
 export function useDashboardSummary() {
@@ -22,6 +24,8 @@ export function useDashboardSummary() {
           region_code: query.region_code,
           annee: query.annee,
           mois: query.mois ?? undefined,
+          date_debut: query.date_debut,
+          date_fin: query.date_fin,
         },
       })
 

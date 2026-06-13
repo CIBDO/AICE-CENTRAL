@@ -21,8 +21,45 @@ class ExecutiveAnalyticsService
     /**
      * @return array<string, mixed>
      */
-    public function kpis(?int $annee = null, ?int $mois = null): array
+    public function kpis(?int $annee = null, ?int $mois = null, ?string $dateDebut = null, ?string $dateFin = null): array
     {
+        if ($dateDebut !== null) {
+            $dateFin = $dateFin ?? $dateDebut;
+            $mouvements = $this->mouvementsForDateRange($dateDebut, $dateFin);
+            $central = app(CentralAggregationService::class)->summary(null, null, $dateDebut, $dateFin);
+            $prev = $this->previousDateRange($dateDebut, $dateFin);
+            $prevMouvements = $this->mouvementsForDateRange($prev['debut'], $prev['fin']);
+            $stats = $this->computeMouvementStats($mouvements);
+            $prevStats = $this->computeMouvementStats($prevMouvements);
+
+            return [
+                'periode' => [
+                    'annee' => (int) substr($dateDebut, 0, 4),
+                    'mois' => null,
+                    'date_debut' => $dateDebut,
+                    'date_fin' => $dateFin,
+                ],
+                'indicateurs' => [
+                    'taux_execution' => $stats['taux_execution'],
+                    'taux_rejet' => $stats['taux_rejet'],
+                    'mandats_total' => $stats['mandats_total'],
+                    'mandats_admis' => $stats['mandats_admis'],
+                    'mandats_rejetes' => $stats['mandats_rejetes'],
+                    'encaisse_total' => $central['global']['encaisse'],
+                    'recettes_total' => $central['global']['total_recettes'],
+                    'depenses_total' => $central['global']['total_depenses'],
+                    'solde_total' => $central['global']['solde'],
+                ],
+                'comparaison_mois_precedent' => [
+                    'depenses_evolution_pct' => $this->evolutionPercent($stats['depenses_montant'], $prevStats['depenses_montant']),
+                    'recettes_evolution_pct' => $this->evolutionPercent($stats['recettes_montant'], $prevStats['recettes_montant']),
+                    'mandats_evolution_pct' => $this->evolutionPercent($stats['mandats_total'], $prevStats['mandats_total']),
+                ],
+                'performance_regions' => $this->performanceRegionsForDateRange($dateDebut, $dateFin),
+                'meta' => $central['meta'],
+            ];
+        }
+
         [$annee, $mois] = $this->resolvePeriod($annee, $mois);
         $mouvements = $this->mouvementsForPeriod($annee, $mois);
         $central = app(CentralAggregationService::class)->summary($annee, $mois);
@@ -36,7 +73,7 @@ class ExecutiveAnalyticsService
         $recettesEvolution = $this->evolutionPercent($stats['recettes_montant'], $prevStats['recettes_montant']);
 
         return [
-            'periode' => ['annee' => $annee, 'mois' => $mois],
+            'periode' => ['annee' => $annee, 'mois' => $mois, 'date_debut' => null, 'date_fin' => null],
             'indicateurs' => [
                 'taux_execution' => $stats['taux_execution'],
                 'taux_rejet' => $stats['taux_rejet'],
@@ -61,12 +98,21 @@ class ExecutiveAnalyticsService
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function alertes(?int $annee = null, ?int $mois = null): array
+    public function alertes(?int $annee = null, ?int $mois = null, ?string $dateDebut = null, ?string $dateFin = null): array
     {
-        [$annee, $mois] = $this->resolvePeriod($annee, $mois);
-        $alertes = [];
+        $useDateRange = $dateDebut !== null;
 
-        $mouvements = $this->mouvementsForPeriod($annee, $mois);
+        if ($useDateRange) {
+            $dateFin = $dateFin ?? $dateDebut;
+            $mouvements = $this->mouvementsForDateRange($dateDebut, $dateFin);
+            $annee = (int) substr($dateDebut, 0, 4);
+            $mois = null;
+        } else {
+            [$annee, $mois] = $this->resolvePeriod($annee, $mois);
+            $mouvements = $this->mouvementsForPeriod($annee, $mois);
+        }
+
+        $alertes = [];
         $stats = $this->computeMouvementStats($mouvements);
 
         if ($stats['mandats_total'] > 0 && $stats['taux_rejet'] >= self::SEUIL_REJET_CRITIQUE) {
@@ -113,7 +159,11 @@ class ExecutiveAnalyticsService
         }
 
         foreach (Region::query()->actives()->ordered()->get() as $region) {
-            if (!$this->resolveDashboard($region, $annee, $mois)) {
+            $hasData = $useDateRange
+                ? $this->mouvementsForRegionDateRange($region, $dateDebut, $dateFin)->isNotEmpty()
+                : $this->resolveDashboard($region, $annee, $mois) !== null;
+
+            if (!$hasData) {
                 $alertes[] = $this->alert(
                     'region_sans_donnees_' . $region->code,
                     'info',
@@ -133,11 +183,17 @@ class ExecutiveAnalyticsService
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function anomalies(?int $annee = null, ?int $mois = null): array
+    public function anomalies(?int $annee = null, ?int $mois = null, ?string $dateDebut = null, ?string $dateFin = null): array
     {
-        [$annee, $mois] = $this->resolvePeriod($annee, $mois);
+        if ($dateDebut !== null) {
+            $dateFin = $dateFin ?? $dateDebut;
+            $performances = $this->performanceRegionsForDateRange($dateDebut, $dateFin);
+        } else {
+            [$annee, $mois] = $this->resolvePeriod($annee, $mois);
+            $performances = $this->performanceRegions($annee, $mois);
+        }
+
         $anomalies = [];
-        $performances = $this->performanceRegions($annee, $mois);
 
         if ($performances === []) {
             return [];
@@ -183,8 +239,47 @@ class ExecutiveAnalyticsService
     /**
      * @return array<string, mixed>
      */
-    public function predictions(?int $annee = null, ?int $mois = null): array
+    public function predictions(?int $annee = null, ?int $mois = null, ?string $dateDebut = null, ?string $dateFin = null): array
     {
+        if ($dateDebut !== null) {
+            $dateFin = $dateFin ?? $dateDebut;
+            $mouvements = $this->mouvementsForDateRange($dateDebut, $dateFin);
+            $stats = $this->computeMouvementStats($mouvements);
+            $prev = $this->previousDateRange($dateDebut, $dateFin);
+            $prevStats = $this->computeMouvementStats($this->mouvementsForDateRange($prev['debut'], $prev['fin']));
+            $depensesEvolution = $this->evolutionPercent($stats['depenses_montant'], $prevStats['depenses_montant']);
+
+            $tendance = 'stable';
+            if ($depensesEvolution !== null) {
+                if ($depensesEvolution > 5) {
+                    $tendance = 'hausse';
+                } elseif ($depensesEvolution < -5) {
+                    $tendance = 'baisse';
+                }
+            }
+
+            $daysInRange = Carbon::parse($dateDebut)->diffInDays(Carbon::parse($dateFin)) + 1;
+            $daysElapsed = min(
+                $daysInRange,
+                max(1, Carbon::parse($dateDebut)->diffInDays(min(Carbon::parse($dateFin), Carbon::now())) + 1),
+            );
+            $projection = ($stats['depenses_montant'] / $daysElapsed) * $daysInRange;
+
+            return [
+                'tendance_depenses' => [
+                    'type' => $tendance,
+                    'evolution_pct' => $depensesEvolution,
+                    'description' => match ($tendance) {
+                        'hausse' => 'Les dépenses progressent par rapport à la période précédente.',
+                        'baisse' => 'Les dépenses reculent par rapport à la période précédente.',
+                        default => 'Les dépenses sont stables par rapport à la période précédente.',
+                    },
+                ],
+                'projection_depenses_fin_mois' => round($projection, 2),
+                'depenses_mois_courant' => $stats['depenses_montant'],
+            ];
+        }
+
         [$annee, $mois] = $this->resolvePeriod($annee, $mois);
         $mouvements = $this->mouvementsForPeriod($annee, $mois);
         $stats = $this->computeMouvementStats($mouvements);
@@ -221,6 +316,80 @@ class ExecutiveAnalyticsService
             ],
             'projection_depenses_fin_mois' => round($projectionFinMois, 2),
             'depenses_mois_courant' => $stats['depenses_montant'],
+        ];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function performanceRegionsForDateRange(string $dateDebut, string $dateFin): array
+    {
+        $rows = [];
+
+        foreach (Region::query()->actives()->ordered()->get() as $region) {
+            $mouvements = $this->mouvementsForRegionDateRange($region, $dateDebut, $dateFin);
+            if ($mouvements->isEmpty()) {
+                continue;
+            }
+
+            $stats = $this->computeMouvementStats($mouvements);
+
+            $rows[] = [
+                'region' => ['code' => $region->code, 'nom' => $region->nom],
+                'taux_execution' => $stats['taux_execution'],
+                'taux_rejet' => $stats['taux_rejet'],
+                'mandats_total' => $stats['mandats_total'],
+                'score' => $this->regionScore($stats),
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => $b['score'] <=> $a['score']);
+
+        return $rows;
+    }
+
+    /** @return Collection<int, Mouvement> */
+    private function mouvementsForDateRange(string $dateDebut, string $dateFin): Collection
+    {
+        $dashboardIds = Dashboard::query()->pluck('id');
+
+        if ($dashboardIds->isEmpty()) {
+            return collect();
+        }
+
+        return Mouvement::query()
+            ->whereIn('dashboard_id', $dashboardIds)
+            ->whereBetween('date_mouvement', [$dateDebut, $dateFin])
+            ->get();
+    }
+
+    /** @return Collection<int, Mouvement> */
+    private function mouvementsForRegionDateRange(Region $region, string $dateDebut, string $dateFin): Collection
+    {
+        $dashboardIds = Dashboard::query()
+            ->where('region_id', $region->id)
+            ->pluck('id');
+
+        if ($dashboardIds->isEmpty()) {
+            return collect();
+        }
+
+        return Mouvement::query()
+            ->whereIn('dashboard_id', $dashboardIds)
+            ->whereBetween('date_mouvement', [$dateDebut, $dateFin])
+            ->get();
+    }
+
+    /** @return array{debut: string, fin: string} */
+    private function previousDateRange(string $dateDebut, string $dateFin): array
+    {
+        $start = Carbon::parse($dateDebut);
+        $end = Carbon::parse($dateFin);
+        $days = $start->diffInDays($end) + 1;
+        $prevEnd = $start->copy()->subDay();
+        $prevStart = $prevEnd->copy()->subDays($days - 1);
+
+        return [
+            'debut' => $prevStart->toDateString(),
+            'fin' => $prevEnd->toDateString(),
         ];
     }
 

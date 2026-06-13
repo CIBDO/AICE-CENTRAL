@@ -4,6 +4,8 @@ import { $api } from '@/utils/api'
 interface CentralQuery {
   annee?: number
   mois?: number | null
+  date_debut?: string
+  date_fin?: string
 }
 
 export function useCentralSummary() {
@@ -20,6 +22,8 @@ export function useCentralSummary() {
         query: {
           annee: query.annee,
           mois: query.mois ?? undefined,
+          date_debut: query.date_debut,
+          date_fin: query.date_fin,
         },
       })
 

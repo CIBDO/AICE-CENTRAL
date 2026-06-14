@@ -2,20 +2,16 @@
 import type { KpiAccent } from '@/types/dashboard'
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
-import { endOfMonth, formatDateFr, formatDateRange, formatFcfa, startOfMonth } from '@/composables/useFormat'
-import { useDetailExplorerContext } from '@/composables/useDetailExplorerContext'
+import { formatDateFr, formatFcfa } from '@/composables/useFormat'
+import { useDashboardFilterSync } from '@/composables/useDetailExplorerContext'
 import { useDashboardSummary } from '@/composables/useDashboardSummary'
 import { useRegions } from '@/composables/useRegions'
 
 definePage({ meta: { layout: 'default' } })
 
-const selectedRegion = ref<string | null>(null)
-const dateDebut = ref(startOfMonth())
-const dateFin = ref(endOfMonth())
-
 const { loading, error, summary, fetchSummary } = useDashboardSummary()
 const { loading: regionsLoading, regions, fetchRegions } = useRegions()
-const { detailRoute, regionCode: explorerRegion, dateDebut: explorerDateDebut, dateFin: explorerDateFin } = useDetailExplorerContext()
+const { regionCode, dateDebut, dateFin, periodLabel, detailRoute, dashboardRoute, hydrateFromRoute } = useDashboardFilterSync()
 
 const quickLinks = computed(() => [
   { title: 'Mandats', hint: 'Explorateur interactif', icon: 'tabler-file-invoice', to: detailRoute('details-mandats') },
@@ -23,7 +19,7 @@ const quickLinks = computed(() => [
   { title: 'Banques', hint: 'Flux trésorerie', icon: 'tabler-building-bank', to: detailRoute('details-banques') },
   { title: 'Programmes', hint: 'Exécution budgétaire', icon: 'tabler-layout-grid', to: detailRoute('details-programmes') },
   { title: 'Natures CE', hint: 'Classification CE', icon: 'tabler-category', to: detailRoute('details-natures-ce') },
-  { title: 'Vue centrale', hint: 'Multi-régions', icon: 'tabler-chart-dots-3', to: { name: 'dashboards-central' } },
+  { title: 'Vue centrale', hint: 'Multi-régions', icon: 'tabler-chart-dots-3', to: dashboardRoute('dashboards-central') },
 ])
 
 const kpis = computed(() => {
@@ -56,7 +52,6 @@ const heroStats = computed(() => {
 })
 
 const regionLabel = computed(() => summary.value ? `${summary.value.region.nom} (${summary.value.region.code})` : null)
-const periodLabel = computed(() => formatDateRange(dateDebut.value, dateFin.value))
 const lastUpdate = computed(() => formatDateFr(summary.value?.meta.derniere_mise_a_jour))
 const hasData = computed(() => (summary.value?.meta.mouvements_count ?? 0) > 0)
 
@@ -75,30 +70,22 @@ async function loadDashboard() {
     return
 
   await fetchSummary({
-    region_code: selectedRegion.value ?? undefined,
+    region_code: regionCode.value ?? undefined,
     date_debut: dateDebut.value,
     date_fin: dateFin.value,
   })
 
-  if (!selectedRegion.value && summary.value?.region.code)
-    selectedRegion.value = summary.value.region.code
+  if (!regionCode.value && summary.value?.region.code)
+    regionCode.value = summary.value.region.code
 }
 
-watch([selectedRegion, dateDebut, dateFin], () => {
-  explorerRegion.value = selectedRegion.value
-  explorerDateDebut.value = dateDebut.value
-  explorerDateFin.value = dateFin.value
-  loadDashboard()
-})
+watch([regionCode, dateDebut, dateFin], () => loadDashboard())
 
 onMounted(async () => {
+  hydrateFromRoute()
   await fetchRegions()
-  if (regions.value.length)
-    selectedRegion.value = regions.value[0].code
-
-  explorerRegion.value = selectedRegion.value
-  explorerDateDebut.value = dateDebut.value
-  explorerDateFin.value = dateFin.value
+  if (!regionCode.value && regions.value.length)
+    regionCode.value = regions.value[0].code
 
   await loadDashboard()
 })
@@ -127,7 +114,7 @@ onMounted(async () => {
     <div class="aice-sticky-toolbar">
       <div class="d-flex flex-wrap align-center gap-3">
         <RegionSelector
-          v-model="selectedRegion"
+          v-model="regionCode"
           :regions="regions"
           :loading="regionsLoading"
         />

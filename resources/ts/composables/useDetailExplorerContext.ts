@@ -63,6 +63,13 @@ export function useDetailExplorerContext() {
     }
   }
 
+  function dashboardRoute(name: string): RouteLocationRaw {
+    return {
+      name,
+      query: baseQuery(),
+    }
+  }
+
   function isValidPeriod(): boolean {
     return !(dateDebut.value && dateFin.value && dateDebut.value > dateFin.value)
   }
@@ -76,7 +83,42 @@ export function useDetailExplorerContext() {
     baseQuery,
     applyBaseQuery,
     detailRoute,
+    dashboardRoute,
     isValidPeriod,
+  }
+}
+
+/** Filtres partagés entre tableaux de bord (région + période), synchronisés avec l’URL. */
+export function useDashboardFilterSync() {
+  const route = useRoute()
+  const router = useRouter()
+  const ctx = useDetailExplorerContext()
+  let hydrating = false
+
+  function syncRoute() {
+    if (hydrating || !route.name)
+      return
+
+    router.replace({
+      name: route.name,
+      query: ctx.baseQuery(),
+    })
+  }
+
+  function hydrateFromRoute() {
+    hydrating = true
+    ctx.applyBaseQuery(route.query)
+    nextTick(() => {
+      hydrating = false
+    })
+  }
+
+  watch([ctx.regionCode, ctx.dateDebut, ctx.dateFin], () => syncRoute())
+
+  return {
+    ...ctx,
+    syncRoute,
+    hydrateFromRoute,
   }
 }
 

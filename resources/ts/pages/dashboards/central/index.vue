@@ -2,23 +2,21 @@
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
 import type { KpiAccent } from '@/types/dashboard'
-import { endOfMonth, formatDateFr, formatDateRange, formatFcfa, startOfMonth } from '@/composables/useFormat'
+import { formatDateFr, formatFcfa } from '@/composables/useFormat'
+import { useDashboardFilterSync } from '@/composables/useDetailExplorerContext'
 import { useCentralSummary } from '@/composables/useCentralSummary'
 
 definePage({ meta: { layout: 'default' } })
 
-const dateDebut = ref(startOfMonth())
-const dateFin = ref(endOfMonth())
-
+const { dateDebut, dateFin, periodLabel, detailRoute, dashboardRoute, hydrateFromRoute } = useDashboardFilterSync()
 const { loading, error, summary, fetchSummary } = useCentralSummary()
 
-const quickLinks = [
-  { title: 'Vue régionale', hint: 'Par région', icon: 'tabler-chart-bar', to: { name: 'dashboards-regional' } },
-  { title: 'Vue exécutive', hint: 'Indicateurs stratégiques', icon: 'tabler-chart-line', to: { name: 'dashboards-executive' } },
-  { title: 'Mandats', hint: 'Explorateur interactif', icon: 'tabler-file-invoice', to: { name: 'details-mandats' } },
-]
+const quickLinks = computed(() => [
+  { title: 'Vue régionale', hint: 'Par région', icon: 'tabler-chart-bar', to: dashboardRoute('dashboards-regional') },
+  { title: 'Vue exécutive', hint: 'Indicateurs stratégiques', icon: 'tabler-chart-line', to: dashboardRoute('dashboards-executive') },
+  { title: 'Mandats', hint: 'Explorateur interactif', icon: 'tabler-file-invoice', to: detailRoute('details-mandats') },
+])
 
-const periodLabel = computed(() => formatDateRange(dateDebut.value, dateFin.value))
 const lastUpdate = computed(() => formatDateFr(summary.value?.meta.derniere_mise_a_jour))
 const hasData = computed(() => (summary.value?.meta.regions_avec_donnees ?? 0) > 0)
 
@@ -80,7 +78,10 @@ async function loadDashboard() {
 
 watch([dateDebut, dateFin], () => loadDashboard())
 
-onMounted(() => loadDashboard())
+onMounted(async () => {
+  hydrateFromRoute()
+  await loadDashboard()
+})
 </script>
 
 <template>

@@ -4,33 +4,28 @@ import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import AlertList from '@/components/aice/AlertList.vue'
 import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
 import {
-  endOfMonth,
   formatDateFr,
-  formatDateRange,
   formatEvolutionPct,
   formatFcfa,
   formatPercent,
-  startOfMonth,
 } from '@/composables/useFormat'
+import { useDashboardFilterSync } from '@/composables/useDetailExplorerContext'
 import { useExecutiveDashboard } from '@/composables/useExecutiveDashboard'
 
 definePage({ meta: { layout: 'default' } })
 
-const dateDebut = ref(startOfMonth())
-const dateFin = ref(endOfMonth())
-
+const { dateDebut, dateFin, periodLabel, detailRoute, dashboardRoute, hydrateFromRoute } = useDashboardFilterSync()
 const { loading, error, kpis, alertes, anomalies, predictions, fetchAll } = useExecutiveDashboard()
 
-const periodLabel = computed(() => formatDateRange(dateDebut.value, dateFin.value))
 const lastUpdate = computed(() => formatDateFr(kpis.value?.meta.derniere_mise_a_jour))
 const hasData = computed(() => (kpis.value?.meta.regions_avec_donnees ?? 0) > 0)
 
-const quickLinks = [
-  { title: 'Vue centrale', hint: 'Toutes les régions', icon: 'tabler-chart-dots-3', to: { name: 'dashboards-central' } },
-  { title: 'Vue régionale', hint: 'Détail par région', icon: 'tabler-chart-bar', to: { name: 'dashboards-regional' } },
-  { title: 'Mandats', hint: 'Explorateur', icon: 'tabler-file-invoice', to: { name: 'details-mandats' } },
-  { title: 'Recettes', hint: 'Encaissements 4121', icon: 'tabler-cash', to: { name: 'details-recettes' } },
-]
+const quickLinks = computed(() => [
+  { title: 'Vue centrale', hint: 'Toutes les régions', icon: 'tabler-chart-dots-3', to: dashboardRoute('dashboards-central') },
+  { title: 'Vue régionale', hint: 'Détail par région', icon: 'tabler-chart-bar', to: dashboardRoute('dashboards-regional') },
+  { title: 'Mandats', hint: 'Explorateur', icon: 'tabler-file-invoice', to: detailRoute('details-mandats') },
+  { title: 'Recettes', hint: 'Encaissements 4121', icon: 'tabler-cash', to: detailRoute('details-recettes') },
+])
 
 const heroStats = computed(() => {
   const ind = kpis.value?.indicateurs
@@ -176,7 +171,10 @@ async function loadDashboard() {
 
 watch([dateDebut, dateFin], () => loadDashboard())
 
-onMounted(() => loadDashboard())
+onMounted(async () => {
+  hydrateFromRoute()
+  await loadDashboard()
+})
 </script>
 
 <template>

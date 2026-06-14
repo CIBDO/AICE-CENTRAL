@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Dashboard;
 use App\Models\Mouvement;
 use App\Models\Region;
+use App\Support\MandatCounter;
 use Illuminate\Support\Collection;
 
 class DashboardQueryService
@@ -58,7 +59,9 @@ class DashboardQueryService
         $mouvements = Mouvement::query()
             ->whereIn('dashboard_id', $dashboardIds)
             ->whereBetween('date_mouvement', [$dateDebut, $dateFin])
-            ->get();
+            ->get()
+            ->unique('regional_id')
+            ->values();
 
         if ($mouvements->isEmpty()) {
             return $this->emptySummary($region, $dateDebut, $dateFin);
@@ -201,32 +204,15 @@ class DashboardQueryService
     /** @param Collection<int, Mouvement> $mouvements */
     private function mandatsParType(Collection $mouvements): array
     {
-        $labels = [
-            '0' => 'Matériel',
-            '1' => 'Salaire',
-            '2' => 'Reversement',
-        ];
-
-        $depenses = $mouvements->where('type', 'depense');
-
-        $result = [];
-        foreach ($labels as $code => $label) {
-            $subset = $depenses->where('type_mandat', $code);
-            $result[] = [
-                'code' => $code,
-                'libelle' => $label,
-                'count' => $subset->count(),
-                'montant' => (float) $subset->sum('montant'),
-            ];
-        }
-
-        return $result;
+        return MandatCounter::parType($mouvements);
     }
 
     /** @param Collection<int, Mouvement> $mouvements */
     private function statutsMandats(Collection $mouvements): array
     {
-        return $mouvements
+        $mandats = MandatCounter::dedupeForCount(MandatCounter::filterMandats($mouvements));
+
+        return $mandats
             ->groupBy(fn (Mouvement $m) => $m->statut ?: 'Non renseigné')
             ->map(fn (Collection $group, string $statut) => [
                 'statut' => $statut,

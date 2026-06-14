@@ -99,4 +99,80 @@ class DashboardSummaryTest extends TestCase
         $response->assertJsonPath('data.kpis.solde', 300);
         $response->assertJsonPath('data.meta.mouvements_count', 2);
     }
+
+    public function test_summary_counts_mandats_par_type_with_deduplication(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $region = Region::create([
+            'code' => 'SAN',
+            'nom' => 'SAN',
+            'actif' => true,
+            'token' => 'token-san',
+            'source_type' => 'api',
+        ]);
+
+        $dashboard = Dashboard::create([
+            'region_id' => $region->id,
+            'local_id' => 'SAN',
+            'regional_id' => 'DASH-SAN-MANDATS',
+            'total_recettes' => 0,
+            'total_depenses' => 0,
+            'solde' => 0,
+            'encaisse' => 0,
+            'annee' => 2024,
+            'mois' => null,
+        ]);
+
+        foreach (['M-001', 'M-002'] as $index => $numero) {
+            $dashboard->mouvements()->create([
+                'regional_id' => "SAN-DUP-A-{$index}",
+                'libelle' => "Matériel {$numero}",
+                'montant' => 100,
+                'type' => 'recette',
+                'date_mouvement' => '2024-03-10',
+                'annee' => 2024,
+                'mois' => 3,
+                'statut' => 'Payé',
+                'type_mandat' => '0',
+                'type_mandat_libelle' => 'Matériel',
+                'source_numero_mandat' => $numero,
+            ]);
+            $dashboard->mouvements()->create([
+                'regional_id' => "SAN-DUP-B-{$index}",
+                'libelle' => "Matériel dup {$numero}",
+                'montant' => 100,
+                'type' => 'recette',
+                'date_mouvement' => '2024-03-10',
+                'annee' => 2024,
+                'mois' => 3,
+                'statut' => 'Payé',
+                'type_mandat' => '0',
+                'type_mandat_libelle' => 'Matériel',
+                'source_numero_mandat' => $numero,
+            ]);
+        }
+
+        $dashboard->mouvements()->create([
+            'regional_id' => 'SAN-SAL-1',
+            'libelle' => 'Salaire',
+            'montant' => 50,
+            'type' => 'depense',
+            'date_mouvement' => '2024-03-11',
+            'annee' => 2024,
+            'mois' => 3,
+            'statut' => 'Admis',
+            'type_mandat' => '1',
+            'type_mandat_libelle' => 'Salaire',
+            'source_numero_mandat' => 'S-001',
+        ]);
+
+        $response = $this->getJson('/api/v1/dashboards/summary?region_code=SAN&date_debut=2024-03-01&date_fin=2024-03-31');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.mandats_par_type.0.libelle', 'Matériel');
+        $response->assertJsonPath('data.mandats_par_type.0.count', 2);
+        $response->assertJsonPath('data.mandats_par_type.1.count', 1);
+        $response->assertJsonPath('data.mandats_par_type.2.count', 0);
+    }
 }

@@ -20,12 +20,13 @@ class CentralAggregationService
         ?int $mois = null,
         ?string $dateDebut = null,
         ?string $dateFin = null,
+        ?string $regionCode = null,
     ): array {
         if ($dateDebut !== null) {
-            return $this->summaryForDateRange($dateDebut, $dateFin ?? $dateDebut);
+            return $this->summaryForDateRange($dateDebut, $dateFin ?? $dateDebut, $regionCode);
         }
 
-        $regions = Region::query()->actives()->ordered()->get();
+        $regions = $this->activeRegions($regionCode);
 
         $regionRows = [];
         $global = DashboardKpis::empty();
@@ -76,9 +77,9 @@ class CentralAggregationService
     /**
      * @return array<string, mixed>
      */
-    private function summaryForDateRange(string $dateDebut, string $dateFin): array
+    private function summaryForDateRange(string $dateDebut, string $dateFin, ?string $regionCode = null): array
     {
-        $regions = Region::query()->actives()->ordered()->get();
+        $regions = $this->activeRegions($regionCode);
 
         $regionRows = [];
         $global = DashboardKpis::empty();
@@ -156,6 +157,18 @@ class CentralAggregationService
                 'derniere_mise_a_jour' => $latestUpdate?->toIso8601String(),
             ],
         ];
+    }
+
+    /** @return Collection<int, Region> */
+    private function activeRegions(?string $regionCode = null): Collection
+    {
+        $query = Region::query()->actives()->ordered();
+
+        if ($regionCode !== null && $regionCode !== '') {
+            $query->where('code', $regionCode);
+        }
+
+        return $query->get();
     }
 
     /** @return array<string, mixed> */

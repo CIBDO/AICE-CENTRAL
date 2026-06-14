@@ -23,6 +23,7 @@ class ExecutiveController extends Controller
                 $validated['mois'] ?? null,
                 $validated['date_debut'] ?? null,
                 $validated['date_fin'] ?? null,
+                $validated['region_code'] ?? null,
             ),
         ]);
     }
@@ -38,6 +39,7 @@ class ExecutiveController extends Controller
                 $validated['mois'] ?? null,
                 $validated['date_debut'] ?? null,
                 $validated['date_fin'] ?? null,
+                $validated['region_code'] ?? null,
             ),
         ]);
     }
@@ -53,6 +55,7 @@ class ExecutiveController extends Controller
                 $validated['mois'] ?? null,
                 $validated['date_debut'] ?? null,
                 $validated['date_fin'] ?? null,
+                $validated['region_code'] ?? null,
             ),
         ]);
     }
@@ -68,6 +71,7 @@ class ExecutiveController extends Controller
                 $validated['mois'] ?? null,
                 $validated['date_debut'] ?? null,
                 $validated['date_fin'] ?? null,
+                $validated['region_code'] ?? null,
             ),
         ]);
     }
@@ -80,6 +84,7 @@ class ExecutiveController extends Controller
             'mois' => 'nullable|integer|min:1|max:12',
             'date_debut' => 'nullable|date',
             'date_fin' => 'nullable|date|after_or_equal:date_debut',
+            'region_code' => 'nullable|string|max:50',
         ]);
     }
 }

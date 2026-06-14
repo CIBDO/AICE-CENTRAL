@@ -6,11 +6,13 @@ import { formatDateFr, formatFcfa } from '@/composables/useFormat'
 import { useDashboardAutoRefresh } from '@/composables/useDashboardAutoRefresh'
 import { useDashboardFilterSync } from '@/composables/useDetailExplorerContext'
 import { useCentralSummary } from '@/composables/useCentralSummary'
+import { useRegions } from '@/composables/useRegions'
 
 definePage({ meta: { layout: 'default' } })
 
-const { dateDebut, dateFin, periodLabel, detailRoute, dashboardRoute, hydrateFromRoute } = useDashboardFilterSync()
+const { regionCode, dateDebut, dateFin, periodLabel, detailRoute, dashboardRoute, hydrateFromRoute } = useDashboardFilterSync()
 const { loading, error, summary, fetchSummary } = useCentralSummary()
+const { loading: regionsLoading, regions, fetchRegions } = useRegions()
 
 const quickLinks = computed(() => [
   { title: 'Vue régionale', hint: 'Par région', icon: 'tabler-chart-bar', to: dashboardRoute('dashboards-regional') },
@@ -20,6 +22,21 @@ const quickLinks = computed(() => [
 
 const lastUpdate = computed(() => formatDateFr(summary.value?.meta.derniere_mise_a_jour))
 const hasData = computed(() => (summary.value?.meta.regions_avec_donnees ?? 0) > 0)
+
+const regionLabel = computed(() => {
+  if (!regionCode.value)
+    return 'Toutes les régions'
+
+  const match = regions.value.find(r => r.code === regionCode.value)
+
+  return match ? `${match.nom} (${match.code})` : regionCode.value
+})
+
+const heroSubtitle = computed(() =>
+  regionCode.value
+    ? `Vue agrégée · ${regionLabel.value}`
+    : 'Vue agrégée de toutes les régions actives.',
+)
 
 const heroStats = computed(() => {
   if (!summary.value) {
@@ -72,17 +89,19 @@ async function loadDashboard(silent = false) {
     return
 
   await fetchSummary({
+    region_code: regionCode.value ?? undefined,
     date_debut: dateDebut.value,
     date_fin: dateFin.value,
   }, { silent })
 }
 
-watch([dateDebut, dateFin], () => loadDashboard())
+watch([regionCode, dateDebut, dateFin], () => loadDashboard())
 
 useDashboardAutoRefresh(() => loadDashboard(true))
 
 onMounted(async () => {
   hydrateFromRoute()
+  await fetchRegions()
   await loadDashboard()
 })
 </script>
@@ -91,7 +110,7 @@ onMounted(async () => {
   <div class="aice-page aice-central-dashboard">
     <ExplorerHero
       title="Tableau de bord central"
-      subtitle="Vue agrégée de toutes les régions actives."
+      :subtitle="heroSubtitle"
       class="aice-dashboard-hero"
       :stats="heroStats"
     >
@@ -109,6 +128,12 @@ onMounted(async () => {
 
     <div class="aice-sticky-toolbar">
       <div class="d-flex flex-wrap align-center gap-3">
+        <RegionSelector
+          v-model="regionCode"
+          :regions="regions"
+          :loading="regionsLoading"
+          allow-all
+        />
         <VTextField
           v-model="dateDebut"
           label="Date début"

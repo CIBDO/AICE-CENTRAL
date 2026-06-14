@@ -6,6 +6,7 @@ interface CentralQuery {
   mois?: number | null
   date_debut?: string
   date_fin?: string
+  region_code?: string
 }
 
 interface FetchOptions {
@@ -32,6 +33,7 @@ export function useCentralSummary() {
           mois: query.mois ?? undefined,
           date_debut: query.date_debut,
           date_fin: query.date_fin,
+          region_code: query.region_code,
         },
       })
 

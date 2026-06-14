@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardReceiveService
 {
+    private const UPSERT_BATCH = 200;
+
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
@@ -43,23 +45,15 @@ class DashboardReceiveService
                 ]
             );
 
-            $mouvementsProcessed = 0;
-            foreach ($payload['mouvements'] as $mouvementData) {
-                $this->upsertMouvement($dashboard, $mouvementData, $payload);
-                $mouvementsProcessed++;
-            }
+            $mouvementsProcessed = $this->bulkUpsertMouvements(
+                $dashboard,
+                $payload['mouvements'] ?? [],
+                $payload,
+            );
 
-            $banquesProcessed = 0;
-            foreach ($payload['banques'] ?? [] as $banqueData) {
-                $this->upsertBanque($dashboard, $banqueData);
-                $banquesProcessed++;
-            }
+            $banquesProcessed = $this->bulkUpsertBanques($dashboard, $payload['banques'] ?? []);
 
-            $recettesProcessed = 0;
-            foreach ($payload['recettes_clients'] ?? [] as $recetteData) {
-                $this->upsertRecetteClient($dashboard, $recetteData);
-                $recettesProcessed++;
-            }
+            $recettesProcessed = $this->bulkUpsertRecettes($dashboard, $payload['recettes_clients'] ?? []);
 
             $region->updateLastConnection();
 
@@ -82,25 +76,30 @@ class DashboardReceiveService
     }
 
     /**
-     * @param  array<string, mixed>  $data
+     * @param  array<int, array<string, mixed>>  $mouvements
      * @param  array<string, mixed>  $dashboardPayload
      */
-    private function upsertMouvement(Dashboard $dashboard, array $data, array $dashboardPayload): void
+    private function bulkUpsertMouvements(Dashboard $dashboard, array $mouvements, array $dashboardPayload): int
     {
-        [$annee, $mois] = $this->resolvePeriod(
-            $data['date_mouvement'] ?? null,
-            $data['annee'] ?? null,
-            $data['mois'] ?? null,
-            $dashboardPayload['annee'] ?? null,
-            $dashboardPayload['mois'] ?? null,
-        );
+        if ($mouvements === []) {
+            return 0;
+        }
 
-        Mouvement::updateOrCreate(
-            [
+        $now = now();
+        $rows = [];
+
+        foreach ($mouvements as $data) {
+            [$annee, $mois] = $this->resolvePeriod(
+                $data['date_mouvement'] ?? null,
+                $data['annee'] ?? null,
+                $data['mois'] ?? null,
+                $dashboardPayload['annee'] ?? null,
+                $dashboardPayload['mois'] ?? null,
+            );
+
+            $rows[] = [
                 'dashboard_id' => $dashboard->id,
                 'regional_id' => $data['regional_id'],
-            ],
-            [
                 'libelle' => $data['libelle'],
                 'montant' => $data['montant'],
                 'type' => $data['type'],
@@ -121,27 +120,46 @@ class DashboardReceiveService
                 'source_id' => $data['source_id'] ?? null,
                 'type_mandat' => $data['type_mandat'] ?? null,
                 'type_mandat_libelle' => $data['type_mandat_libelle'] ?? null,
-            ]
-        );
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        $updateColumns = [
+            'libelle', 'montant', 'type', 'date_mouvement', 'annee', 'mois',
+            'programme', 'nature', 'code_programme', 'chapitre', 'nature_ce',
+            'statut', 'statut_code', 'montant_paye', 'solde_a_payer', 'beneficiaire',
+            'source_numero_mandat', 'source_id', 'type_mandat', 'type_mandat_libelle',
+            'updated_at',
+        ];
+
+        foreach (array_chunk($rows, self::UPSERT_BATCH) as $chunk) {
+            Mouvement::upsert($chunk, ['dashboard_id', 'regional_id'], $updateColumns);
+        }
+
+        return count($rows);
     }
 
-    /** @param  array<string, mixed>  $data */
-    private function upsertBanque(Dashboard $dashboard, array $data): void
+    /** @param  array<int, array<string, mixed>>  $banques */
+    private function bulkUpsertBanques(Dashboard $dashboard, array $banques): int
     {
-        $regionalId = $data['regional_id'] ?? $this->deriveRegionalId('BNQ', [
-            $dashboard->regional_id,
-            $data['numero_compte'] ?? '',
-            $data['reference'] ?? '',
-            $data['entry_no'] ?? '',
-            $data['date_mouvement'] ?? '',
-        ]);
+        if ($banques === []) {
+            return 0;
+        }
 
-        BanquePush::updateOrCreate(
-            [
+        $now = now();
+        $rows = [];
+
+        foreach ($banques as $data) {
+            $rows[] = [
                 'dashboard_id' => $dashboard->id,
-                'regional_id' => $regionalId,
-            ],
-            [
+                'regional_id' => $data['regional_id'] ?? $this->deriveRegionalId('BNQ', [
+                    $dashboard->regional_id,
+                    $data['numero_compte'] ?? '',
+                    $data['reference'] ?? '',
+                    $data['entry_no'] ?? '',
+                    $data['date_mouvement'] ?? '',
+                ]),
                 'numero_compte' => $data['numero_compte'],
                 'libelle' => $data['libelle'],
                 'date_mouvement' => $data['date_mouvement'] ?? null,
@@ -153,27 +171,43 @@ class DashboardReceiveService
                 'exercice' => $data['exercice'] ?? null,
                 'type_document' => $data['type_document'] ?? null,
                 'description' => $data['description'] ?? null,
-            ]
-        );
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        $updateColumns = [
+            'numero_compte', 'libelle', 'date_mouvement', 'debit', 'credit', 'solde',
+            'reference', 'entry_no', 'exercice', 'type_document', 'description', 'updated_at',
+        ];
+
+        foreach (array_chunk($rows, self::UPSERT_BATCH) as $chunk) {
+            BanquePush::upsert($chunk, ['dashboard_id', 'regional_id'], $updateColumns);
+        }
+
+        return count($rows);
     }
 
-    /** @param  array<string, mixed>  $data */
-    private function upsertRecetteClient(Dashboard $dashboard, array $data): void
+    /** @param  array<int, array<string, mixed>>  $recettes */
+    private function bulkUpsertRecettes(Dashboard $dashboard, array $recettes): int
     {
-        $regionalId = $data['regional_id'] ?? $this->deriveRegionalId('RCT', [
-            $dashboard->regional_id,
-            $data['client_no'] ?? '',
-            $data['source_no'] ?? '',
-            $data['date_posting'] ?? '',
-            $data['montant'] ?? '',
-        ]);
+        if ($recettes === []) {
+            return 0;
+        }
 
-        RecetteClientPush::updateOrCreate(
-            [
+        $now = now();
+        $rows = [];
+
+        foreach ($recettes as $data) {
+            $rows[] = [
                 'dashboard_id' => $dashboard->id,
-                'regional_id' => $regionalId,
-            ],
-            [
+                'regional_id' => $data['regional_id'] ?? $this->deriveRegionalId('RCT', [
+                    $dashboard->regional_id,
+                    $data['client_no'] ?? '',
+                    $data['source_no'] ?? '',
+                    $data['date_posting'] ?? '',
+                    $data['montant'] ?? '',
+                ]),
                 'client_no' => $data['client_no'],
                 'client_name' => $data['client_name'],
                 'gl_account' => $data['gl_account'] ?? null,
@@ -182,8 +216,21 @@ class DashboardReceiveService
                 'description' => $data['description'] ?? null,
                 'source_no' => $data['source_no'] ?? null,
                 'exercice' => $data['exercice'] ?? null,
-            ]
-        );
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        $updateColumns = [
+            'client_no', 'client_name', 'gl_account', 'date_posting', 'montant',
+            'description', 'source_no', 'exercice', 'updated_at',
+        ];
+
+        foreach (array_chunk($rows, self::UPSERT_BATCH) as $chunk) {
+            RecetteClientPush::upsert($chunk, ['dashboard_id', 'regional_id'], $updateColumns);
+        }
+
+        return count($rows);
     }
 
     /**

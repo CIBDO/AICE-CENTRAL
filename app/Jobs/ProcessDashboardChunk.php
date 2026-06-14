@@ -31,6 +31,8 @@ class ProcessDashboardChunk implements ShouldQueue
 
     public function handle(DashboardReceiveService $service): void
     {
+        @set_time_limit((int) env('DASHBOARD_RECEIVE_MAX_EXECUTION', 600));
+
         Log::info('Traitement en queue: dashboard chunk', [
             'region_id' => $this->regionId,
             'local_id' => $this->payload['local_id'] ?? null,

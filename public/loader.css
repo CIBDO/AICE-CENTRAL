@@ -13,10 +13,18 @@ html {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--initial-loader-bg, #fff);
+  background: var(--initial-loader-bg, #F5F7FA);
   block-size: 100%;
   gap: 1rem 0;
   inline-size: 100%;
+}
+
+.loading-logo img {
+  display: block;
+  block-size: auto;
+  max-block-size: 72px;
+  max-inline-size: min(240px, 70vw);
+  object-fit: contain;
 }
 
 .loading {
@@ -36,7 +44,7 @@ html {
   border: 3px solid transparent;
   border-radius: 50%;
   block-size: 100%;
-  border-inline-start: 3px solid var(--initial-loader-color, #eee);
+  border-inline-start: 3px solid var(--initial-loader-color, #08A04B);
   inline-size: 100%;
 }
 

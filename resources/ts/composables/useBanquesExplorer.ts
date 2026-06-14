@@ -3,6 +3,8 @@ import { $api } from '@/utils/api'
 
 export interface BanqueFilters {
   region_code?: string | null
+  date_debut?: string
+  date_fin?: string
   annee?: number
   mois?: number | null
   numero_compte?: string | null
@@ -31,6 +33,8 @@ export function useBanquesExplorer() {
       }>('/v1/banques', {
         query: {
           region_code: filters.region_code ?? undefined,
+          date_debut: filters.date_debut,
+          date_fin: filters.date_fin,
           annee: filters.annee,
           mois: filters.mois ?? undefined,
           numero_compte: filters.numero_compte ?? undefined,

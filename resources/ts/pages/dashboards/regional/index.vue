@@ -3,6 +3,7 @@ import type { KpiAccent } from '@/types/dashboard'
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
 import { endOfMonth, formatDateFr, formatDateRange, formatFcfa, startOfMonth } from '@/composables/useFormat'
+import { useDetailExplorerContext } from '@/composables/useDetailExplorerContext'
 import { useDashboardSummary } from '@/composables/useDashboardSummary'
 import { useRegions } from '@/composables/useRegions'
 
@@ -14,15 +15,16 @@ const dateFin = ref(endOfMonth())
 
 const { loading, error, summary, fetchSummary } = useDashboardSummary()
 const { loading: regionsLoading, regions, fetchRegions } = useRegions()
+const { detailRoute, regionCode: explorerRegion, dateDebut: explorerDateDebut, dateFin: explorerDateFin } = useDetailExplorerContext()
 
-const quickLinks = [
-  { title: 'Mandats', hint: 'Explorateur interactif', icon: 'tabler-file-invoice', to: { name: 'details-mandats' } },
-  { title: 'Recettes', hint: 'Clients & encaissements', icon: 'tabler-cash', to: { name: 'details-recettes' } },
-  { title: 'Banques', hint: 'Flux trésorerie', icon: 'tabler-building-bank', to: { name: 'details-banques' } },
-  { title: 'Programmes', hint: 'Exécution budgétaire', icon: 'tabler-layout-grid', to: { name: 'details-programmes' } },
-  { title: 'Natures CE', hint: 'Classification CE', icon: 'tabler-category', to: { name: 'details-natures-ce' } },
+const quickLinks = computed(() => [
+  { title: 'Mandats', hint: 'Explorateur interactif', icon: 'tabler-file-invoice', to: detailRoute('details-mandats') },
+  { title: 'Recettes', hint: 'Clients & encaissements', icon: 'tabler-cash', to: detailRoute('details-recettes') },
+  { title: 'Banques', hint: 'Flux trésorerie', icon: 'tabler-building-bank', to: detailRoute('details-banques') },
+  { title: 'Programmes', hint: 'Exécution budgétaire', icon: 'tabler-layout-grid', to: detailRoute('details-programmes') },
+  { title: 'Natures CE', hint: 'Classification CE', icon: 'tabler-category', to: detailRoute('details-natures-ce') },
   { title: 'Vue centrale', hint: 'Multi-régions', icon: 'tabler-chart-dots-3', to: { name: 'dashboards-central' } },
-]
+])
 
 const kpis = computed(() => {
   const data = summary.value?.kpis
@@ -82,12 +84,22 @@ async function loadDashboard() {
     selectedRegion.value = summary.value.region.code
 }
 
-watch([selectedRegion, dateDebut, dateFin], () => loadDashboard())
+watch([selectedRegion, dateDebut, dateFin], () => {
+  explorerRegion.value = selectedRegion.value
+  explorerDateDebut.value = dateDebut.value
+  explorerDateFin.value = dateFin.value
+  loadDashboard()
+})
 
 onMounted(async () => {
   await fetchRegions()
   if (regions.value.length)
     selectedRegion.value = regions.value[0].code
+
+  explorerRegion.value = selectedRegion.value
+  explorerDateDebut.value = dateDebut.value
+  explorerDateFin.value = dateFin.value
+
   await loadDashboard()
 })
 </script>

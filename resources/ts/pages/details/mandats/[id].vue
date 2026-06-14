@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import StatutChip from '@/components/aice/StatutChip.vue'
-import { formatFcfa, formatDateFr, formatMonthYear } from '@/composables/useFormat'
+import { formatFcfa, formatDateOnly, formatDateRange } from '@/composables/useFormat'
+import { queryParam, useDetailExplorerContext } from '@/composables/useDetailExplorerContext'
 import { useMouvementDetail } from '@/composables/useMouvementDetail'
 import type { MouvementRow } from '@/types/details'
 
@@ -9,15 +10,22 @@ definePage({ meta: { layout: 'default' } })
 
 const route = useRoute('details-mandats-id')
 const router = useRouter()
+const { regionCode, dateDebut, dateFin, periodQuery, baseQuery, applyBaseQuery } = useDetailExplorerContext()
 
 const id = computed(() => Number(route.params.id))
-const regionCode = computed(() => (route.query.region_code as string) || null)
-const annee = computed(() => Number(route.query.annee) || new Date().getFullYear())
-const mois = computed(() => route.query.mois ? Number(route.query.mois) : new Date().getMonth() + 1)
+
+const periodLabel = computed(() => formatDateRange(dateDebut.value, dateFin.value))
 
 const { loading, error, mouvement, related, context, fetch } = useMouvementDetail()
 
-const periodLabel = computed(() => formatMonthYear(context.value?.annee ?? annee.value, context.value?.mois ?? mois.value))
+function listQuery() {
+  return baseQuery({
+    statut: queryParam(route.query.statut),
+    programme: queryParam(route.query.programme),
+    search: queryParam(route.query.search),
+    page: queryParam(route.query.page),
+  })
+}
 
 const detailFields = computed(() => {
   const m = mouvement.value
@@ -33,7 +41,7 @@ const detailFields = computed(() => {
     { label: 'Nature', value: m.nature ?? '—' },
     { label: 'Type mandat', value: m.type_mandat_libelle ?? m.type_mandat ?? '—' },
     { label: 'Type mouvement', value: m.type ?? '—' },
-    { label: 'Date', value: formatDateFr(m.date_mouvement) },
+    { label: 'Date', value: formatDateOnly(m.date_mouvement) },
     { label: 'Période', value: periodLabel.value },
     { label: 'Région', value: context.value?.region_nom ?? context.value?.region_code ?? '—' },
     { label: 'Source ID', value: m.source_id ?? '—' },
@@ -41,7 +49,10 @@ const detailFields = computed(() => {
 })
 
 function goBack() {
-  router.push({ name: 'details-mandats' })
+  router.push({
+    name: 'details-mandats',
+    query: listQuery(),
+  })
 }
 
 function openProgramme() {
@@ -51,12 +62,9 @@ function openProgramme() {
 
   router.push({
     name: 'details-programmes',
-    query: {
+    query: baseQuery({
       programme: code,
-      region_code: regionCode.value ?? undefined,
-      annee: annee.value,
-      mois: mois.value,
-    },
+    }),
   })
 }
 
@@ -64,16 +72,19 @@ function openRelated(item: MouvementRow) {
   router.push({
     name: 'details-mandats-id',
     params: { id: item.id },
-    query: {
-      region_code: regionCode.value ?? undefined,
-      annee: annee.value,
-      mois: mois.value,
-    },
+    query: listQuery(),
   })
 }
 
+watch(() => route.query, (query) => {
+  applyBaseQuery(query)
+}, { immediate: true })
+
 watch(id, () => {
-  fetch(id.value, { region_code: regionCode.value, annee: annee.value, mois: mois.value })
+  fetch(id.value, {
+    region_code: regionCode.value,
+    ...periodQuery(),
+  })
 }, { immediate: true })
 
 const relatedHeaders = [
@@ -187,6 +198,9 @@ const relatedHeaders = [
               hide-default-footer
               @click:row="(_ev: Event, ctx: { item: MouvementRow }) => openRelated(ctx.item)"
             >
+              <template #item.date_mouvement="{ item }">
+                <span class="tabular-nums">{{ formatDateOnly(item.date_mouvement) }}</span>
+              </template>
               <template #item.statut="{ item }">
                 <StatutChip :statut="item.statut ?? '—'" />
               </template>

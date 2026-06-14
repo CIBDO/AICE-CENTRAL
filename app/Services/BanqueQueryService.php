@@ -89,6 +89,8 @@ class BanqueQueryService
 
         $query = BanquePush::query()->whereIn('dashboard_id', $dashboardIds);
 
+        DetailQueryFilters::applyDateRange($query, $filters, 'date_mouvement');
+
         if (!empty($filters['numero_compte'])) {
             $query->where('numero_compte', $filters['numero_compte']);
         }

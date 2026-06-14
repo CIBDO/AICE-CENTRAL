@@ -109,13 +109,7 @@ class MouvementQueryService
 
         $query = Mouvement::query()->whereIn('dashboard_id', $dashboardIds);
 
-        if (!empty($filters['annee'])) {
-            $query->where('annee', (int) $filters['annee']);
-        }
-
-        if (!empty($filters['mois'])) {
-            $query->where('mois', (int) $filters['mois']);
-        }
+        DetailQueryFilters::applyDateRange($query, $filters, 'date_mouvement', supportsAnneeMois: true);
 
         if (!empty($filters['type'])) {
             $query->where('type', $filters['type']);

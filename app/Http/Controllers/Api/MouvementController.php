@@ -35,6 +35,8 @@ class MouvementController extends Controller
     {
         $filters = $request->validate([
             'region_code' => 'nullable|string|max:50',
+            'date_debut' => 'nullable|date',
+            'date_fin' => 'nullable|date|after_or_equal:date_debut',
             'annee' => 'nullable|integer|min:2000|max:2100',
             'mois' => 'nullable|integer|min:1|max:12',
         ]);
@@ -56,6 +58,8 @@ class MouvementController extends Controller
                 'region_nom' => $region?->nom,
                 'annee' => $mouvement->annee,
                 'mois' => $mouvement->mois,
+                'date_debut' => $filters['date_debut'] ?? null,
+                'date_fin' => $filters['date_fin'] ?? null,
             ],
         ]);
     }
@@ -87,6 +91,8 @@ class MouvementController extends Controller
     {
         return $request->validate([
             'region_code' => 'nullable|string|max:50',
+            'date_debut' => 'nullable|date',
+            'date_fin' => 'nullable|date|after_or_equal:date_debut',
             'annee' => 'nullable|integer|min:2000|max:2100',
             'mois' => 'nullable|integer|min:1|max:12',
             'type' => 'nullable|in:depense,recette',

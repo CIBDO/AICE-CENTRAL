@@ -3,6 +3,8 @@ import { $api } from '@/utils/api'
 
 export interface RecetteFilters {
   region_code?: string | null
+  date_debut?: string
+  date_fin?: string
   annee?: number
   mois?: number | null
   client_no?: string | null
@@ -31,6 +33,8 @@ export function useRecettesExplorer() {
       }>('/v1/recettes', {
         query: {
           region_code: filters.region_code ?? undefined,
+          date_debut: filters.date_debut,
+          date_fin: filters.date_fin,
           annee: filters.annee,
           mois: filters.mois ?? undefined,
           client_no: filters.client_no ?? undefined,

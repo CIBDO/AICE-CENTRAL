@@ -2,15 +2,37 @@
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import ExportButton from '@/components/aice/ExportButton.vue'
 import SparklineChart from '@/components/aice/SparklineChart.vue'
-import { formatFcfa, formatMonthYear } from '@/composables/useFormat'
+import { formatFcfa, formatDateOnly, formatDayLabel } from '@/composables/useFormat'
+import { queryParam, useExplorerRouteSync } from '@/composables/useDetailExplorerContext'
 import { useRecettesExplorer } from '@/composables/useRecettesExplorer'
 import { useRegions } from '@/composables/useRegions'
 
 definePage({ meta: { layout: 'default' } })
 
-const selectedRegion = ref<string | null>(null)
-const annee = ref(new Date().getFullYear())
-const mois = ref<number | null>(new Date().getMonth() + 1)
+const {
+  regionCode,
+  dateDebut,
+  dateFin,
+  periodLabel,
+  periodQuery,
+  baseQuery,
+  isValidPeriod,
+  syncRoute,
+  hydrateFromRoute,
+} = useExplorerRouteSync(
+  () => ({
+    search: search.value || undefined,
+    client_no: clientFilter.value,
+    page: page.value > 1 ? page.value : undefined,
+  }),
+  (query) => {
+    search.value = queryParam(query.search) ?? ''
+    clientFilter.value = queryParam(query.client_no) ?? null
+    activeClient.value = clientFilter.value
+    const p = queryParam(query.page)
+    page.value = p ? Number(p) : 1
+  },
+)
 const search = ref('')
 const clientFilter = ref<string | null>(null)
 const activeClient = ref<string | null>(null)
@@ -18,8 +40,6 @@ const page = ref(1)
 
 const { loading, error, items, stats, meta, fetch } = useRecettesExplorer()
 const { regions, fetchRegions } = useRegions()
-
-const periodLabel = computed(() => formatMonthYear(annee.value, mois.value))
 
 const heroStats = computed(() => {
   const t = stats.value?.totaux
@@ -38,10 +58,7 @@ const heroStats = computed(() => {
   ]
 })
 
-const exportQuery = computed(() => ({
-  region_code: selectedRegion.value,
-  annee: annee.value,
-  mois: mois.value,
+const exportQuery = computed(() => baseQuery({
   client_no: clientFilter.value,
   search: search.value || undefined,
 }))
@@ -67,7 +84,7 @@ const kpiCards = computed(() => {
 
 const sparkline = computed(() => {
   const rows = stats.value?.par_jour.filter(r => r.date !== 'sans-date') ?? []
-  return { labels: rows.map(r => r.date), data: rows.map(r => r.montant ?? 0) }
+  return { labels: rows.map(r => formatDayLabel(r.date)), data: rows.map(r => r.montant ?? 0) }
 })
 
 const clientsChart = computed(() => ({
@@ -76,10 +93,12 @@ const clientsChart = computed(() => ({
 }))
 
 function load() {
+  if (!isValidPeriod())
+    return
+
   fetch({
-    region_code: selectedRegion.value,
-    annee: annee.value,
-    mois: mois.value,
+    region_code: regionCode.value,
+    ...periodQuery(),
     client_no: clientFilter.value,
     search: search.value,
     page: page.value,
@@ -90,21 +109,35 @@ function selectClient(clientNo: string | null) {
   clientFilter.value = clientFilter.value === clientNo ? null : clientNo
   activeClient.value = clientFilter.value
   page.value = 1
-  load()
 }
 
-watch([selectedRegion, annee, mois], () => { page.value = 1; load() })
+watch([regionCode, dateDebut, dateFin, clientFilter], () => {
+  page.value = 1
+  syncRoute()
+  load()
+})
 
 let searchTimer: ReturnType<typeof setTimeout>
 watch(search, () => {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { page.value = 1; load() }, 350)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    syncRoute()
+    load()
+  }, 350)
+})
+
+watch(page, () => {
+  syncRoute()
+  load()
 })
 
 onMounted(async () => {
   await fetchRegions()
-  if (regions.value.length)
-    selectedRegion.value = regions.value[0].code
+  hydrateFromRoute()
+  if (!regionCode.value && regions.value.length)
+    regionCode.value = regions.value[0].code
+  syncRoute()
   load()
 })
 
@@ -129,26 +162,26 @@ const headers = [
     <div class="aice-sticky-toolbar">
       <div class="d-flex flex-wrap align-center gap-3">
         <RegionSelector
-          v-model="selectedRegion"
+          v-model="regionCode"
           :regions="regions"
         />
-        <VSelect
-          v-model="annee"
-          :items="[annee, annee - 1]"
-          label="Année"
+        <VTextField
+          v-model="dateDebut"
+          label="Date début"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 100px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
-        <VSelect
-          v-model="mois"
-          :items="Array.from({ length: 12 }, (_, i) => ({ title: new Date(2024, i).toLocaleString('fr-FR', { month: 'long' }), value: i + 1 }))"
-          item-title="title"
-          item-value="value"
-          label="Mois"
+        <VTextField
+          v-model="dateFin"
+          label="Date fin"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 150px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
         <VTextField
           v-model="search"
@@ -277,6 +310,9 @@ const headers = [
         :items-per-page="-1"
         hide-default-footer
       >
+        <template #item.date_posting="{ item }">
+          <span class="tabular-nums">{{ formatDateOnly(item.date_posting) }}</span>
+        </template>
         <template #item.montant="{ item }">
           <span class="tabular-nums font-weight-medium">{{ formatFcfa(item.montant) }}</span>
         </template>

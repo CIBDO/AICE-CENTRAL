@@ -6,6 +6,8 @@ export interface MouvementDetailContext {
   region_nom: string | null
   annee: number | null
   mois: number | null
+  date_debut: string | null
+  date_fin: string | null
 }
 
 export function useMouvementDetail() {
@@ -15,7 +17,7 @@ export function useMouvementDetail() {
   const related = ref<MouvementRow[]>([])
   const context = ref<MouvementDetailContext | null>(null)
 
-  async function fetch(id: number, filters: { region_code?: string | null, annee?: number, mois?: number | null }) {
+  async function fetch(id: number, filters: { region_code?: string | null, date_debut?: string, date_fin?: string, annee?: number, mois?: number | null }) {
     loading.value = true
     error.value = null
 
@@ -28,6 +30,8 @@ export function useMouvementDetail() {
       }>(`/v1/mouvements/${id}`, {
         query: {
           region_code: filters.region_code ?? undefined,
+          date_debut: filters.date_debut,
+          date_fin: filters.date_fin,
           annee: filters.annee,
           mois: filters.mois ?? undefined,
         },

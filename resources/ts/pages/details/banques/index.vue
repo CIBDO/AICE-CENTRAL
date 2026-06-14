@@ -2,23 +2,42 @@
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import ExportButton from '@/components/aice/ExportButton.vue'
 import SparklineChart from '@/components/aice/SparklineChart.vue'
-import { formatFcfa, formatMonthYear } from '@/composables/useFormat'
+import { formatFcfa, formatDateOnly, formatDayLabel } from '@/composables/useFormat'
+import { queryParam, useExplorerRouteSync } from '@/composables/useDetailExplorerContext'
 import { useBanquesExplorer } from '@/composables/useBanquesExplorer'
 import { useRegions } from '@/composables/useRegions'
 
 definePage({ meta: { layout: 'default' } })
 
-const selectedRegion = ref<string | null>(null)
-const annee = ref(new Date().getFullYear())
-const mois = ref<number | null>(new Date().getMonth() + 1)
+const {
+  regionCode,
+  dateDebut,
+  dateFin,
+  periodLabel,
+  periodQuery,
+  baseQuery,
+  isValidPeriod,
+  syncRoute,
+  hydrateFromRoute,
+} = useExplorerRouteSync(
+  () => ({
+    search: search.value || undefined,
+    numero_compte: compteFilter.value,
+    page: page.value > 1 ? page.value : undefined,
+  }),
+  (query) => {
+    search.value = queryParam(query.search) ?? ''
+    compteFilter.value = queryParam(query.numero_compte) ?? null
+    const p = queryParam(query.page)
+    page.value = p ? Number(p) : 1
+  },
+)
 const search = ref('')
 const compteFilter = ref<string | null>(null)
 const page = ref(1)
 
 const { loading, error, items, stats, meta, fetch } = useBanquesExplorer()
 const { regions, fetchRegions } = useRegions()
-
-const periodLabel = computed(() => formatMonthYear(annee.value, mois.value))
 
 const heroStats = computed(() => {
   const t = stats.value?.totaux
@@ -37,10 +56,7 @@ const heroStats = computed(() => {
   ]
 })
 
-const exportQuery = computed(() => ({
-  region_code: selectedRegion.value,
-  annee: annee.value,
-  mois: mois.value,
+const exportQuery = computed(() => baseQuery({
   numero_compte: compteFilter.value,
   search: search.value || undefined,
 }))
@@ -67,7 +83,7 @@ const kpiCards = computed(() => {
 const fluxChart = computed(() => {
   const rows = stats.value?.par_jour.filter(r => r.date !== 'sans-date') ?? []
   return {
-    labels: rows.map(r => r.date),
+    labels: rows.map(r => formatDayLabel(r.date)),
     datasets: [
       { label: 'Crédits', data: rows.map(r => r.credit ?? 0), backgroundColor: '#08A04B' },
       { label: 'Débits', data: rows.map(r => r.debit ?? 0), backgroundColor: '#E53935' },
@@ -77,14 +93,16 @@ const fluxChart = computed(() => {
 
 const creditSparkline = computed(() => {
   const rows = stats.value?.par_jour.filter(r => r.date !== 'sans-date') ?? []
-  return { labels: rows.map(r => r.date), data: rows.map(r => (r.credit ?? 0) - (r.debit ?? 0)) }
+  return { labels: rows.map(r => formatDayLabel(r.date)), data: rows.map(r => (r.credit ?? 0) - (r.debit ?? 0)) }
 })
 
 function load() {
+  if (!isValidPeriod())
+    return
+
   fetch({
-    region_code: selectedRegion.value,
-    annee: annee.value,
-    mois: mois.value,
+    region_code: regionCode.value,
+    ...periodQuery(),
     numero_compte: compteFilter.value,
     search: search.value,
     page: page.value,
@@ -94,21 +112,35 @@ function load() {
 function selectCompte(numero: string | null) {
   compteFilter.value = compteFilter.value === numero ? null : numero
   page.value = 1
-  load()
 }
 
-watch([selectedRegion, annee, mois], () => { page.value = 1; load() })
+watch([regionCode, dateDebut, dateFin, compteFilter], () => {
+  page.value = 1
+  syncRoute()
+  load()
+})
 
 let searchTimer: ReturnType<typeof setTimeout>
 watch(search, () => {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { page.value = 1; load() }, 350)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    syncRoute()
+    load()
+  }, 350)
+})
+
+watch(page, () => {
+  syncRoute()
+  load()
 })
 
 onMounted(async () => {
   await fetchRegions()
-  if (regions.value.length)
-    selectedRegion.value = regions.value[0].code
+  hydrateFromRoute()
+  if (!regionCode.value && regions.value.length)
+    regionCode.value = regions.value[0].code
+  syncRoute()
   load()
 })
 
@@ -134,26 +166,26 @@ const headers = [
     <div class="aice-sticky-toolbar">
       <div class="d-flex flex-wrap align-center gap-3">
         <RegionSelector
-          v-model="selectedRegion"
+          v-model="regionCode"
           :regions="regions"
         />
-        <VSelect
-          v-model="annee"
-          :items="[annee, annee - 1]"
-          label="Année"
+        <VTextField
+          v-model="dateDebut"
+          label="Date début"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 100px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
-        <VSelect
-          v-model="mois"
-          :items="Array.from({ length: 12 }, (_, i) => ({ title: new Date(2024, i).toLocaleString('fr-FR', { month: 'long' }), value: i + 1 }))"
-          item-title="title"
-          item-value="value"
-          label="Mois"
+        <VTextField
+          v-model="dateFin"
+          label="Date fin"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 150px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
         <VTextField
           v-model="search"
@@ -225,7 +257,7 @@ const headers = [
           <ChartWidget
             v-if="fluxChart.labels.length"
             type="bar"
-            :labels="fluxChart.labels.map(d => d.slice(8))"
+            :labels="fluxChart.labels"
             :datasets="fluxChart.datasets"
             :height="260"
           />
@@ -306,6 +338,9 @@ const headers = [
         :items-per-page="-1"
         hide-default-footer
       >
+        <template #item.date_mouvement="{ item }">
+          <span class="tabular-nums">{{ formatDateOnly(item.date_mouvement) }}</span>
+        </template>
         <template #item.debit="{ item }">
           <span class="tabular-nums text-error">{{ item.debit ? formatFcfa(item.debit) : '—' }}</span>
         </template>

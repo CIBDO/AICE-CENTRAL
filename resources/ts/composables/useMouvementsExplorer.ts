@@ -3,6 +3,8 @@ import { $api } from '@/utils/api'
 
 export interface MouvementFilters {
   region_code?: string | null
+  date_debut?: string
+  date_fin?: string
   annee?: number
   mois?: number | null
   type?: string | null
@@ -34,6 +36,8 @@ export function useMouvementsExplorer() {
       }>('/v1/mouvements', {
         query: {
           region_code: filters.region_code ?? undefined,
+          date_debut: filters.date_debut,
+          date_fin: filters.date_fin,
           annee: filters.annee,
           mois: filters.mois ?? undefined,
           type: filters.type ?? undefined,

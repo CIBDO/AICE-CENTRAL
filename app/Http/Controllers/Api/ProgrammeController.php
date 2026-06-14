@@ -58,6 +58,8 @@ class ProgrammeController extends Controller
     {
         return $request->validate([
             'region_code' => 'nullable|string|max:50',
+            'date_debut' => 'nullable|date',
+            'date_fin' => 'nullable|date|after_or_equal:date_debut',
             'annee' => 'nullable|integer|min:2000|max:2100',
             'mois' => 'nullable|integer|min:1|max:12',
             'programme' => 'nullable|string|max:50',

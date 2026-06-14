@@ -82,6 +82,8 @@ class RecetteQueryService
 
         $query = RecetteClientPush::query()->whereIn('dashboard_id', $dashboardIds);
 
+        DetailQueryFilters::applyDateRange($query, $filters, 'date_posting');
+
         if (!empty($filters['client_no'])) {
             $query->where('client_no', $filters['client_no']);
         }

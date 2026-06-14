@@ -4,7 +4,8 @@ import ExportButton from '@/components/aice/ExportButton.vue'
 import FilterChipBar from '@/components/aice/FilterChipBar.vue'
 import SparklineChart from '@/components/aice/SparklineChart.vue'
 import StatutChip from '@/components/aice/StatutChip.vue'
-import { formatFcfa, formatMonthYear } from '@/composables/useFormat'
+import { formatFcfa, formatDateOnly, formatDayLabel } from '@/composables/useFormat'
+import { queryParam, useExplorerRouteSync } from '@/composables/useDetailExplorerContext'
 import { useMouvementsExplorer } from '@/composables/useMouvementsExplorer'
 import { useRegions } from '@/composables/useRegions'
 import type { MouvementRow } from '@/types/details'
@@ -13,9 +14,38 @@ definePage({ meta: { layout: 'default' } })
 
 const router = useRouter()
 
-const selectedRegion = ref<string | null>(null)
-const annee = ref(new Date().getFullYear())
-const mois = ref<number | null>(new Date().getMonth() + 1)
+const {
+  regionCode,
+  dateDebut,
+  dateFin,
+  periodLabel,
+  periodQuery,
+  baseQuery,
+  isValidPeriod,
+  syncRoute,
+  hydrateFromRoute,
+} = useExplorerRouteSync(
+  () => ({
+    statut: statutFilter.value,
+    programme: programmeFilter.value,
+    search: search.value || undefined,
+    page: page.value > 1 ? page.value : undefined,
+  }),
+  (query) => {
+    statutFilter.value = queryParam(query.statut) ?? null
+    programmeFilter.value = queryParam(query.programme) ?? null
+    search.value = queryParam(query.search) ?? ''
+    const p = queryParam(query.page)
+    page.value = p ? Number(p) : 1
+    const statut = statutFilter.value
+    if (statut === 'Payé')
+      activeKpi.value = 'paye'
+    else if (statut === 'Admis')
+      activeKpi.value = 'admis'
+    else
+      activeKpi.value = null
+  },
+)
 const search = ref('')
 const statutFilter = ref<string | null>(null)
 const typeFilter = ref<string | null>('depense')
@@ -26,8 +56,6 @@ const expanded = ref<number[]>([])
 
 const { loading, error, items, stats, meta, fetch } = useMouvementsExplorer()
 const { regions, fetchRegions } = useRegions()
-
-const periodLabel = computed(() => formatMonthYear(annee.value, mois.value))
 
 const heroStats = computed(() => {
   const t = stats.value?.totaux
@@ -47,13 +75,12 @@ const heroStats = computed(() => {
 })
 
 const exportQuery = computed(() => ({
-  region_code: selectedRegion.value,
-  annee: annee.value,
-  mois: mois.value,
-  type: typeFilter.value,
-  statut: statutFilter.value,
-  programme: programmeFilter.value,
-  search: search.value || undefined,
+  ...baseQuery({
+    type: typeFilter.value,
+    statut: statutFilter.value,
+    programme: programmeFilter.value,
+    search: search.value || undefined,
+  }),
 }))
 
 const statutChips = [
@@ -88,7 +115,7 @@ const kpiCards = computed(() => {
 const sparkline = computed(() => {
   const rows = stats.value?.par_jour.filter(r => r.date !== 'sans-date') ?? []
   return {
-    labels: rows.map(r => r.date),
+    labels: rows.map(r => formatDayLabel(r.date)),
     data: rows.map(r => r.montant ?? 0),
   }
 })
@@ -104,10 +131,12 @@ const programmeChart = computed(() => ({
 }))
 
 function load() {
+  if (!isValidPeriod())
+    return
+
   fetch({
-    region_code: selectedRegion.value,
-    annee: annee.value,
-    mois: mois.value,
+    region_code: regionCode.value,
+    ...periodQuery(),
     type: typeFilter.value,
     statut: statutFilter.value,
     programme: programmeFilter.value,
@@ -135,39 +164,48 @@ function onKpiSelect(key: string) {
   }
 
   page.value = 1
-  load()
 }
 
 function onProgrammeClick(label: string) {
   programmeFilter.value = programmeFilter.value === label ? null : label
   page.value = 1
-  load()
 }
 
 function onPageChange(newPage: number) {
   page.value = newPage
-  load()
+}
+
+function mandatListQuery() {
+  return baseQuery({
+    statut: statutFilter.value,
+    programme: programmeFilter.value,
+    search: search.value || undefined,
+    page: page.value > 1 ? page.value : undefined,
+  })
 }
 
 function openMandat(item: MouvementRow) {
   router.push({
     name: 'details-mandats-id',
     params: { id: item.id },
-    query: {
-      region_code: selectedRegion.value ?? undefined,
-      annee: annee.value,
-      mois: mois.value ?? undefined,
-    },
+    query: mandatListQuery(),
   })
 }
 
-watch([selectedRegion, annee, mois], () => {
+watch([regionCode, dateDebut, dateFin], () => {
   page.value = 1
+  syncRoute()
   load()
 })
 
 watch(statutFilter, () => {
   page.value = 1
+  syncRoute()
+  load()
+})
+
+watch(programmeFilter, () => {
+  syncRoute()
   load()
 })
 
@@ -176,14 +214,22 @@ watch(search, () => {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
     page.value = 1
+    syncRoute()
     load()
   }, 350)
 })
 
+watch(page, () => {
+  syncRoute()
+  load()
+})
+
 onMounted(async () => {
   await fetchRegions()
-  if (regions.value.length)
-    selectedRegion.value = regions.value[0].code
+  hydrateFromRoute()
+  if (!regionCode.value && regions.value.length)
+    regionCode.value = regions.value[0].code
+  syncRoute()
   load()
 })
 
@@ -209,26 +255,26 @@ const headers = [
     <div class="aice-sticky-toolbar">
       <div class="d-flex flex-wrap align-center gap-3">
         <RegionSelector
-          v-model="selectedRegion"
+          v-model="regionCode"
           :regions="regions"
         />
-        <VSelect
-          v-model="annee"
-          :items="[annee, annee - 1, annee - 2]"
-          label="Année"
+        <VTextField
+          v-model="dateDebut"
+          label="Date début"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 100px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
-        <VSelect
-          v-model="mois"
-          :items="Array.from({ length: 12 }, (_, i) => ({ title: new Date(2024, i).toLocaleString('fr-FR', { month: 'long' }), value: i + 1 }))"
-          item-title="title"
-          item-value="value"
-          label="Mois"
+        <VTextField
+          v-model="dateFin"
+          label="Date fin"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 150px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
         <VTextField
           v-model="search"
@@ -390,7 +436,7 @@ const headers = [
         @click:row="(_ev: Event, ctx: { item: MouvementRow }) => openMandat(ctx.item)"
       >
         <template #item.date_mouvement="{ item }">
-          <span class="tabular-nums">{{ item.date_mouvement ?? '—' }}</span>
+          <span class="tabular-nums">{{ formatDateOnly(item.date_mouvement) }}</span>
         </template>
         <template #item.statut="{ item }">
           <StatutChip :statut="item.statut ?? '—'" />

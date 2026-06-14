@@ -52,8 +52,10 @@ declare global {
   const extendRef: typeof import('@vueuse/core')['extendRef']
   const formatDate: typeof import('./resources/ts/@core/utils/formatters')['formatDate']
   const formatDateFr: typeof import('./resources/ts/composables/useFormat')['formatDateFr']
+  const formatDateOnly: typeof import('./resources/ts/composables/useFormat')['formatDateOnly']
   const formatDateRange: typeof import('./resources/ts/composables/useFormat')['formatDateRange']
   const formatDateToMonthShort: typeof import('./resources/ts/@core/utils/formatters')['formatDateToMonthShort']
+  const formatDayLabel: typeof import('./resources/ts/composables/useFormat')['formatDayLabel']
   const formatFcfa: typeof import('./resources/ts/composables/useFormat')['formatFcfa']
   const formatMonthYear: typeof import('./resources/ts/composables/useFormat')['formatMonthYear']
   const formatPercent: typeof import('./resources/ts/composables/useFormat')['formatPercent']
@@ -116,6 +118,7 @@ declare global {
   const prefixWithPlus: typeof import('./resources/ts/@core/utils/formatters')['prefixWithPlus']
   const provide: typeof import('vue')['provide']
   const provideLocal: typeof import('@vueuse/core')['provideLocal']
+  const queryParam: typeof import('./resources/ts/composables/useDetailExplorerContext')['queryParam']
   const reactify: typeof import('@vueuse/core')['reactify']
   const reactifyObject: typeof import('@vueuse/core')['reactifyObject']
   const reactive: typeof import('vue')['reactive']
@@ -221,6 +224,8 @@ declare global {
   const useDebounce: typeof import('@vueuse/core')['useDebounce']
   const useDebounceFn: typeof import('@vueuse/core')['useDebounceFn']
   const useDebouncedRefHistory: typeof import('@vueuse/core')['useDebouncedRefHistory']
+  const useDetailExplorerContext: typeof import('./resources/ts/composables/useDetailExplorerContext')['useDetailExplorerContext']
+  const useDetailPeriod: typeof import('./resources/ts/composables/useDetailPeriod')['useDetailPeriod']
   const useDeviceMotion: typeof import('@vueuse/core')['useDeviceMotion']
   const useDeviceOrientation: typeof import('@vueuse/core')['useDeviceOrientation']
   const useDevicePixelRatio: typeof import('@vueuse/core')['useDevicePixelRatio']
@@ -238,6 +243,7 @@ declare global {
   const useEventListener: typeof import('@vueuse/core')['useEventListener']
   const useEventSource: typeof import('@vueuse/core')['useEventSource']
   const useExecutiveDashboard: typeof import('./resources/ts/composables/useExecutiveDashboard')['useExecutiveDashboard']
+  const useExplorerRouteSync: typeof import('./resources/ts/composables/useDetailExplorerContext')['useExplorerRouteSync']
   const useEyeDropper: typeof import('@vueuse/core')['useEyeDropper']
   const useFavicon: typeof import('@vueuse/core')['useFavicon']
   const useFetch: typeof import('@vueuse/core')['useFetch']
@@ -440,8 +446,10 @@ declare module 'vue' {
     readonly extendRef: UnwrapRef<typeof import('@vueuse/core')['extendRef']>
     readonly formatDate: UnwrapRef<typeof import('./resources/ts/@core/utils/formatters')['formatDate']>
     readonly formatDateFr: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatDateFr']>
+    readonly formatDateOnly: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatDateOnly']>
     readonly formatDateRange: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatDateRange']>
     readonly formatDateToMonthShort: UnwrapRef<typeof import('./resources/ts/@core/utils/formatters')['formatDateToMonthShort']>
+    readonly formatDayLabel: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatDayLabel']>
     readonly formatFcfa: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatFcfa']>
     readonly formatMonthYear: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatMonthYear']>
     readonly formatPercent: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatPercent']>
@@ -504,6 +512,7 @@ declare module 'vue' {
     readonly prefixWithPlus: UnwrapRef<typeof import('./resources/ts/@core/utils/formatters')['prefixWithPlus']>
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
     readonly provideLocal: UnwrapRef<typeof import('@vueuse/core')['provideLocal']>
+    readonly queryParam: UnwrapRef<typeof import('./resources/ts/composables/useDetailExplorerContext')['queryParam']>
     readonly reactify: UnwrapRef<typeof import('@vueuse/core')['reactify']>
     readonly reactifyObject: UnwrapRef<typeof import('@vueuse/core')['reactifyObject']>
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
@@ -609,6 +618,8 @@ declare module 'vue' {
     readonly useDebounce: UnwrapRef<typeof import('@vueuse/core')['useDebounce']>
     readonly useDebounceFn: UnwrapRef<typeof import('@vueuse/core')['useDebounceFn']>
     readonly useDebouncedRefHistory: UnwrapRef<typeof import('@vueuse/core')['useDebouncedRefHistory']>
+    readonly useDetailExplorerContext: UnwrapRef<typeof import('./resources/ts/composables/useDetailExplorerContext')['useDetailExplorerContext']>
+    readonly useDetailPeriod: UnwrapRef<typeof import('./resources/ts/composables/useDetailPeriod')['useDetailPeriod']>
     readonly useDeviceMotion: UnwrapRef<typeof import('@vueuse/core')['useDeviceMotion']>
     readonly useDeviceOrientation: UnwrapRef<typeof import('@vueuse/core')['useDeviceOrientation']>
     readonly useDevicePixelRatio: UnwrapRef<typeof import('@vueuse/core')['useDevicePixelRatio']>
@@ -626,6 +637,7 @@ declare module 'vue' {
     readonly useEventListener: UnwrapRef<typeof import('@vueuse/core')['useEventListener']>
     readonly useEventSource: UnwrapRef<typeof import('@vueuse/core')['useEventSource']>
     readonly useExecutiveDashboard: UnwrapRef<typeof import('./resources/ts/composables/useExecutiveDashboard')['useExecutiveDashboard']>
+    readonly useExplorerRouteSync: UnwrapRef<typeof import('./resources/ts/composables/useDetailExplorerContext')['useExplorerRouteSync']>
     readonly useEyeDropper: UnwrapRef<typeof import('@vueuse/core')['useEyeDropper']>
     readonly useFavicon: UnwrapRef<typeof import('@vueuse/core')['useFavicon']>
     readonly useFetch: UnwrapRef<typeof import('@vueuse/core')['useFetch']>

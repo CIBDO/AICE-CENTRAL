@@ -4,19 +4,42 @@ import ExportButton from '@/components/aice/ExportButton.vue'
 import FilterChipBar from '@/components/aice/FilterChipBar.vue'
 import SparklineChart from '@/components/aice/SparklineChart.vue'
 import StatutChip from '@/components/aice/StatutChip.vue'
-import { formatFcfa, formatMonthYear, formatPercent } from '@/composables/useFormat'
+import { formatFcfa, formatDateOnly, formatDayLabel, formatPercent } from '@/composables/useFormat'
+import { queryParam, useExplorerRouteSync } from '@/composables/useDetailExplorerContext'
 import { useProgrammesExplorer } from '@/composables/useProgrammesExplorer'
 import { useRegions } from '@/composables/useRegions'
 import type { MouvementRow, ProgrammeRow } from '@/types/details'
 
 definePage({ meta: { layout: 'default' } })
 
-const route = useRoute()
 const router = useRouter()
-
-const selectedRegion = ref<string | null>(null)
-const annee = ref(new Date().getFullYear())
-const mois = ref<number | null>(new Date().getMonth() + 1)
+const {
+  regionCode,
+  dateDebut,
+  dateFin,
+  periodLabel,
+  periodQuery,
+  baseQuery,
+  isValidPeriod,
+  syncRoute,
+  hydrateFromRoute,
+} = useExplorerRouteSync(
+  () => ({
+    programme: programmeFilter.value,
+    statut: statutFilter.value,
+    chapitre: chapitreFilter.value,
+    search: search.value || undefined,
+    page: page.value > 1 ? page.value : undefined,
+  }),
+  (query) => {
+    programmeFilter.value = queryParam(query.programme) ?? null
+    statutFilter.value = queryParam(query.statut) ?? null
+    chapitreFilter.value = queryParam(query.chapitre) ?? null
+    search.value = queryParam(query.search) ?? ''
+    const p = queryParam(query.page)
+    page.value = p ? Number(p) : 1
+  },
+)
 const search = ref('')
 const programmeFilter = ref<string | null>(null)
 const statutFilter = ref<string | null>(null)
@@ -26,8 +49,6 @@ const page = ref(1)
 
 const { loading, error, items, stats, meta, fetch } = useProgrammesExplorer()
 const { regions, fetchRegions } = useRegions()
-
-const periodLabel = computed(() => formatMonthYear(annee.value, mois.value))
 
 const heroStats = computed(() => {
   const t = stats.value?.totaux
@@ -53,10 +74,7 @@ const statutChips = [
   { label: 'Rejeté', value: 'Rejeté' },
 ]
 
-const exportQuery = computed(() => ({
-  region_code: selectedRegion.value,
-  annee: annee.value,
-  mois: mois.value,
+const exportQuery = computed(() => baseQuery({
   programme: programmeFilter.value,
   statut: statutFilter.value,
   chapitre: chapitreFilter.value,
@@ -89,7 +107,7 @@ const selectedProgramme = computed(() =>
 
 const sparkline = computed(() => {
   const rows = stats.value?.par_jour.filter(r => r.date !== 'sans-date') ?? []
-  return { labels: rows.map(r => r.date), data: rows.map(r => r.montant ?? 0) }
+  return { labels: rows.map(r => formatDayLabel(r.date)), data: rows.map(r => r.montant ?? 0) }
 })
 
 const statutChart = computed(() => ({
@@ -108,10 +126,12 @@ const typeMandatChart = computed(() => ({
 }))
 
 function load() {
+  if (!isValidPeriod())
+    return
+
   fetch({
-    region_code: selectedRegion.value,
-    annee: annee.value,
-    mois: mois.value,
+    region_code: regionCode.value,
+    ...periodQuery(),
     programme: programmeFilter.value,
     statut: statutFilter.value,
     chapitre: chapitreFilter.value,
@@ -125,7 +145,6 @@ function selectProgramme(prog: ProgrammeRow) {
   programmeFilter.value = programmeFilter.value === prog.code ? null : prog.code
   chapitreFilter.value = null
   page.value = 1
-  load()
 }
 
 function onKpiSelect(key: string) {
@@ -143,50 +162,58 @@ function onKpiSelect(key: string) {
   }
 
   page.value = 1
-  load()
 }
 
 function onChapitreClick(label: string) {
   chapitreFilter.value = chapitreFilter.value === label ? null : label
   page.value = 1
-  load()
 }
 
 function openMandat(item: MouvementRow) {
   router.push({
     name: 'details-mandats-id',
     params: { id: item.id },
-    query: {
-      region_code: selectedRegion.value ?? undefined,
-      annee: annee.value,
-      mois: mois.value ?? undefined,
-    },
+    query: baseQuery({
+      programme: programmeFilter.value,
+      statut: statutFilter.value,
+      search: search.value || undefined,
+    }),
   })
 }
 
-watch([selectedRegion, annee, mois], () => { page.value = 1; load() })
-watch(statutFilter, () => { page.value = 1; load() })
+watch([regionCode, dateDebut, dateFin], () => {
+  page.value = 1
+  syncRoute()
+  load()
+})
+
+watch([statutFilter, programmeFilter, chapitreFilter], () => {
+  page.value = 1
+  syncRoute()
+  load()
+})
 
 let searchTimer: ReturnType<typeof setTimeout>
 watch(search, () => {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { page.value = 1; load() }, 350)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    syncRoute()
+    load()
+  }, 350)
+})
+
+watch(page, () => {
+  syncRoute()
+  load()
 })
 
 onMounted(async () => {
   await fetchRegions()
-  if (regions.value.length)
-    selectedRegion.value = regions.value[0].code
-
-  if (route.query.region_code)
-    selectedRegion.value = String(route.query.region_code)
-  if (route.query.annee)
-    annee.value = Number(route.query.annee)
-  if (route.query.mois)
-    mois.value = Number(route.query.mois)
-  if (route.query.programme)
-    programmeFilter.value = String(route.query.programme)
-
+  hydrateFromRoute()
+  if (!regionCode.value && regions.value.length)
+    regionCode.value = regions.value[0].code
+  syncRoute()
   load()
 })
 
@@ -212,26 +239,26 @@ const headers = [
     <div class="aice-sticky-toolbar">
       <div class="d-flex flex-wrap align-center gap-3">
         <RegionSelector
-          v-model="selectedRegion"
+          v-model="regionCode"
           :regions="regions"
         />
-        <VSelect
-          v-model="annee"
-          :items="[annee, annee - 1, annee - 2]"
-          label="Année"
+        <VTextField
+          v-model="dateDebut"
+          label="Date début"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 100px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
-        <VSelect
-          v-model="mois"
-          :items="Array.from({ length: 12 }, (_, i) => ({ title: new Date(2024, i).toLocaleString('fr-FR', { month: 'long' }), value: i + 1 }))"
-          item-title="title"
-          item-value="value"
-          label="Mois"
+        <VTextField
+          v-model="dateFin"
+          label="Date fin"
+          type="date"
           density="compact"
           hide-details
-          style="max-inline-size: 150px;"
+          variant="outlined"
+          style="max-inline-size: 170px;"
         />
         <VTextField
           v-model="search"
@@ -460,6 +487,9 @@ const headers = [
         hide-default-footer
         @click:row="(_ev: Event, ctx: { item: MouvementRow }) => openMandat(ctx.item)"
       >
+        <template #item.date_mouvement="{ item }">
+          <span class="tabular-nums">{{ formatDateOnly(item.date_mouvement) }}</span>
+        </template>
         <template #item.statut="{ item }">
           <StatutChip :statut="item.statut ?? '—'" />
         </template>

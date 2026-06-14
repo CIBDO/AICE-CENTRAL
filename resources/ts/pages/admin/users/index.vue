@@ -6,8 +6,13 @@ import { useAdminRoles } from '@/composables/useAdminRoles'
 
 definePage({ meta: { layout: 'default' } })
 
-const { loading, error, users, meta, fetch, create, update, remove } = useAdminUsers()
+const { loading, error, users, meta, fetch, create, update, resetPassword, setActive, remove } = useAdminUsers()
 const { roles, fetch: fetchRoles } = useAdminRoles()
+
+const currentUserId = computed(() => {
+  const data = useCookie<{ id?: number } | null>('userData').value
+  return data?.id ?? null
+})
 
 const search = ref('')
 const page = ref(1)
@@ -15,15 +20,17 @@ const dialog = ref(false)
 const editingId = ref<number | null>(null)
 const form = ref<UserPayload>({ login: '', nom: '', prenom: '', email: '', password: '', role_id: null, actif: true })
 const saving = ref(false)
+const actionLoadingId = ref<number | null>(null)
 const snackbar = ref(false)
 const snackbarText = ref('')
+const snackbarColor = ref<'success' | 'error'>('success')
 
 const headers = [
   { title: 'Login', key: 'login' },
   { title: 'Nom complet', key: 'nom_complet' },
   { title: 'Rôle', key: 'role.nom' },
   { title: 'Statut', key: 'actif', width: '100px' },
-  { title: '', key: 'actions', width: '100px', sortable: false },
+  { title: '', key: 'actions', width: '120px', sortable: false },
 ]
 
 const activeCount = computed(() => users.value.filter(u => u.actif).length)
@@ -48,8 +55,7 @@ async function save() {
     }
     else {
       const response = await create(form.value)
-      snackbarText.value = `Utilisateur ${response.data.login} créé — un email de notification a été envoyé à ${response.data.email}.`
-      snackbar.value = true
+      showSnackbar(response.message ?? `Utilisateur ${response.data.login} créé.`)
     }
     dialog.value = false
     await fetch(page.value, search.value)
@@ -64,6 +70,63 @@ async function onDelete(id: number) {
     return
   await remove(id)
   await fetch(page.value, search.value)
+}
+
+function showSnackbar(message: string, color: 'success' | 'error' = 'success') {
+  snackbarText.value = message
+  snackbarColor.value = color
+  snackbar.value = true
+}
+
+async function onResetPassword(user: typeof users.value[0]) {
+  if (!user.email) {
+    showSnackbar('Aucune adresse e-mail associée à ce compte.', 'error')
+    return
+  }
+
+  if (!confirm(`Réinitialiser le mot de passe de ${user.login} ?\nUn e-mail sera envoyé à ${user.email}.`))
+    return
+
+  actionLoadingId.value = user.id
+  try {
+    const response = await resetPassword(user.id)
+    showSnackbar(response.message)
+    await fetch(page.value, search.value)
+  }
+  catch (e) {
+    showSnackbar(e instanceof Error ? e.message : 'Réinitialisation impossible.', 'error')
+  }
+  finally {
+    actionLoadingId.value = null
+  }
+}
+
+async function onToggleActive(user: typeof users.value[0]) {
+  if (user.id === currentUserId.value) {
+    showSnackbar('Vous ne pouvez pas modifier le statut de votre propre compte.', 'error')
+    return
+  }
+
+  const nextActive = !user.actif
+  const label = nextActive ? 'réactiver' : 'désactiver'
+
+  if (!confirm(`${label.charAt(0).toUpperCase()}${label.slice(1)} le compte ${user.login} ?`))
+    return
+
+  actionLoadingId.value = user.id
+  try {
+    await setActive(user.id, nextActive)
+    showSnackbar(nextActive
+      ? `Compte ${user.login} réactivé.`
+      : `Compte ${user.login} désactivé.`)
+    await fetch(page.value, search.value)
+  }
+  catch (e) {
+    showSnackbar(e instanceof Error ? e.message : 'Modification du statut impossible.', 'error')
+  }
+  finally {
+    actionLoadingId.value = null
+  }
 }
 
 let timer: ReturnType<typeof setTimeout>
@@ -149,15 +212,44 @@ onMounted(async () => {
           >
             <VIcon icon="tabler-pencil" />
           </VBtn>
-          <VBtn
-            icon
-            variant="text"
-            size="x-small"
-            color="error"
-            @click="onDelete(item.id)"
-          >
-            <VIcon icon="tabler-trash" />
-          </VBtn>
+          <VMenu location="bottom end">
+            <template #activator="{ props }">
+              <VBtn
+                icon
+                variant="text"
+                size="x-small"
+                v-bind="props"
+                :loading="actionLoadingId === item.id"
+              >
+                <VIcon icon="tabler-dots-vertical" />
+              </VBtn>
+            </template>
+            <VList density="compact">
+              <VListItem
+                prepend-icon="tabler-key"
+                :disabled="!item.email"
+                @click="onResetPassword(item)"
+              >
+                <VListItemTitle>Réinitialiser le mot de passe</VListItemTitle>
+              </VListItem>
+              <VListItem
+                :prepend-icon="item.actif ? 'tabler-user-off' : 'tabler-user-check'"
+                :disabled="item.id === currentUserId"
+                @click="onToggleActive(item)"
+              >
+                <VListItemTitle>{{ item.actif ? 'Désactiver le compte' : 'Réactiver le compte' }}</VListItemTitle>
+              </VListItem>
+              <VDivider />
+              <VListItem
+                prepend-icon="tabler-trash"
+                class="text-error"
+                :disabled="item.id === currentUserId"
+                @click="onDelete(item.id)"
+              >
+                <VListItemTitle>Supprimer</VListItemTitle>
+              </VListItem>
+            </VList>
+          </VMenu>
         </template>
       </VDataTable>
       <div
@@ -247,7 +339,7 @@ onMounted(async () => {
 
     <VSnackbar
       v-model="snackbar"
-      color="success"
+      :color="snackbarColor"
       :timeout="6000"
       location="bottom end"
     >

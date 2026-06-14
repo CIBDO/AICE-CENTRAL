@@ -61,6 +61,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('api.users.index');
         Route::post('/users', [UserController::class, 'store'])->name('api.users.store');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('api.users.update');
+        Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('api.users.reset-password');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('api.users.destroy');
 
         Route::get('/roles', [RoleController::class, 'index'])->name('api.roles.index');

@@ -6,7 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class UserAccountCreated extends Notification
+class UserPasswordReset extends Notification
 {
     use Queueable;
 
@@ -23,13 +23,13 @@ class UserAccountCreated extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Votre compte AICE — Hub central DGTCP')
+            ->subject('Réinitialisation de votre mot de passe — Hub central AICE')
             ->greeting('Bonjour '.$notifiable->prenom.',')
-            ->line('Un compte vous a été créé sur le hub central AICE.')
+            ->line('Votre mot de passe a été réinitialisé par un administrateur.')
             ->line('**Login :** '.$notifiable->login)
-            ->line('**Mot de passe temporaire :** '.$this->plainPassword)
+            ->line('**Nouveau mot de passe temporaire :** '.$this->plainPassword)
             ->action('Se connecter', url('/login'))
-            ->line('Vous devrez changer votre mot de passe lors de votre première connexion.')
+            ->line('Vous devrez définir un nouveau mot de passe lors de votre prochaine connexion.')
             ->salutation('Direction Générale du Trésor et de la Comptabilité Publique');
     }
 }

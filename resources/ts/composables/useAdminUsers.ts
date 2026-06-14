@@ -48,16 +48,24 @@ export function useAdminUsers() {
   }
 
   async function create(payload: UserPayload) {
-    return await $api<{ data: AdminUser }>('/v1/users', { method: 'POST', body: payload })
+    return await $api<{ message?: string; data: AdminUser }>('/v1/users', { method: 'POST', body: payload })
   }
 
   async function update(id: number, payload: Partial<UserPayload>) {
-    await $api(`/v1/users/${id}`, { method: 'PUT', body: payload })
+    return await $api<{ data: AdminUser }>(`/v1/users/${id}`, { method: 'PUT', body: payload })
+  }
+
+  async function resetPassword(id: number) {
+    return await $api<{ message: string; data: AdminUser }>(`/v1/users/${id}/reset-password`, { method: 'POST' })
+  }
+
+  async function setActive(id: number, actif: boolean) {
+    return await update(id, { actif })
   }
 
   async function remove(id: number) {
     await $api(`/v1/users/${id}`, { method: 'DELETE' })
   }
 
-  return { loading, error, users, meta, fetch, create, update, remove }
+  return { loading, error, users, meta, fetch, create, update, resetPassword, setActive, remove }
 }

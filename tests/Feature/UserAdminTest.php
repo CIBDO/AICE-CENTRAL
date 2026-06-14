@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\UserAccountCreated;
+use App\Notifications\UserPasswordReset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -90,5 +91,48 @@ class UserAdminTest extends TestCase
             'role_id' => $role->id,
         ])->assertUnprocessable()
             ->assertJsonValidationErrors(['login']);
+    }
+
+    public function test_admin_can_reset_user_password_and_notify(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create();
+        Sanctum::actingAs($admin);
+
+        $user = User::factory()->create([
+            'email' => 'user@test.local',
+            'premiere_connexion' => false,
+        ]);
+
+        $oldHash = $user->password;
+
+        $this->postJson("/api/v1/users/{$user->id}/reset-password")
+            ->assertOk()
+            ->assertJsonPath('status', 'OK');
+
+        $user->refresh();
+        $this->assertNotSame($oldHash, $user->password);
+        $this->assertTrue($user->premiere_connexion);
+        Notification::assertSentTo($user, UserPasswordReset::class);
+    }
+
+    public function test_reset_password_requires_email(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $user = User::factory()->create(['email' => '']);
+
+        $this->postJson("/api/v1/users/{$user->id}/reset-password")
+            ->assertStatus(422);
+    }
+
+    public function test_user_cannot_deactivate_self(): void
+    {
+        $admin = User::factory()->create(['actif' => true]);
+        Sanctum::actingAs($admin);
+
+        $this->putJson("/api/v1/users/{$admin->id}", ['actif' => false])
+            ->assertForbidden();
     }
 }

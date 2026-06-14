@@ -5,6 +5,15 @@ const emailRouteComponent = () => import('@/pages/apps/email/index.vue')
 // 👉 Redirects
 export const redirects: RouteRecordRaw[] = [
   {
+    path: '/build/:pathMatch(.*)*',
+    redirect: to => {
+      const match = to.params.pathMatch
+      const suffix = Array.isArray(match) ? match.join('/') : match
+
+      return suffix ? `/${suffix}` : '/'
+    },
+  },
+  {
     path: '/',
     name: 'index',
     redirect: to => {

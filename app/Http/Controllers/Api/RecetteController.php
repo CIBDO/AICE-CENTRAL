@@ -39,13 +39,13 @@ class RecetteController extends Controller
         return CsvExporter::download(
             'recettes.csv',
             ['Date', 'N° client', 'Client', 'Compte GL', 'Description', 'Montant (FCFA)'],
-            $rows->map(fn ($r) => [
-                $r->date_posting?->format('d/m/Y') ?? '',
-                $r->client_no ?? '',
-                $r->client_name ?? '',
-                $r->gl_account ?? '',
-                $r->description ?? '',
-                number_format((float) $r->montant, 0, ',', ' '),
+            $rows->map(fn (array $r) => [
+                isset($r['date_posting']) ? date('d/m/Y', strtotime((string) $r['date_posting'])) : '',
+                $r['client_no'] ?? '',
+                $r['client_name'] ?? '',
+                $r['gl_account'] ?? '',
+                $r['description'] ?? '',
+                number_format((float) ($r['montant'] ?? 0), 0, ',', ' '),
             ]),
         );
     }

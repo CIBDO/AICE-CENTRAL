@@ -124,7 +124,7 @@ class MandatCounter
             ->filter(fn (Mouvement $m) => in_array($statut($m), ['Payé', 'Réglé'], true))
             ->sum(fn (Mouvement $m) => StatutNormalizer::montantForStatut($m));
 
-        $montantTotal = (float) $mandats->sum(fn (Mouvement $m) => StatutNormalizer::montantForStatut($m));
+        $montantTotal = $financial['total_ordonnance'];
 
         return [
             'mandats_total' => $mandatsTotal,
@@ -196,18 +196,17 @@ class MandatCounter
      */
     public static function parStatut(Collection $mouvements): array
     {
-        $deduped = self::dedupeForCount(
-            self::filterMandats(self::dedupeRows($mouvements))->filter(
-                fn (Mouvement $m) => ! StatutNormalizer::isExcluded($m->statut, $m->statut_code)
-            )
+        // Comptage par ligne NAV (écran Mandats), pas par dédup (numero + type).
+        $rows = self::filterMandats(self::dedupeRows($mouvements))->filter(
+            fn (Mouvement $m) => ! StatutNormalizer::isExcluded($m->statut, $m->statut_code)
         );
 
-        return $deduped
+        return $rows
             ->groupBy(fn (Mouvement $m) => StatutNormalizer::normalize($m->statut, $m->statut_code) ?? 'Non renseigné')
             ->map(fn (Collection $group, string $statut) => [
                 'statut' => $statut,
                 'count' => $group->count(),
-                'montant' => (float) $group->sum(fn (Mouvement $m) => StatutNormalizer::montantForStatut($m)),
+                'montant' => (float) $group->sum(fn (Mouvement $m) => (float) $m->montant),
             ])
             ->values()
             ->sortByDesc('count')

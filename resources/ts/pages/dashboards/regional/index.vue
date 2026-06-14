@@ -97,7 +97,6 @@ onMounted(async () => {
     <ExplorerHero
       icon="tabler-chart-bar"
       title="Tableau de bord régional"
-      subtitle="Synthèse des mouvements, mandats et soldes de trésorerie — données Push en temps réel."
       class="aice-dashboard-hero"
       :stats="heroStats"
     >

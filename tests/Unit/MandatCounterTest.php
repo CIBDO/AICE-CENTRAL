@@ -79,4 +79,69 @@ class MandatCounterTest extends TestCase
 
         $this->assertSame(290.0, MandatCounter::montantPayeTotal($rows));
     }
+
+    public function test_par_statut_montant_matches_par_type_total(): void
+    {
+        $rows = collect([
+            new Mouvement([
+                'type_mandat' => '0',
+                'source_numero_mandat' => 'M-1',
+                'date_mouvement' => '2024-06-01',
+                'statut' => 'Payé',
+                'statut_code' => 'S92',
+                'montant' => 1000,
+                'montant_paye' => 800,
+            ]),
+            new Mouvement([
+                'type_mandat' => '1',
+                'source_numero_mandat' => 'S-1',
+                'date_mouvement' => '2024-06-02',
+                'statut' => 'Admis',
+                'statut_code' => 'S30',
+                'montant' => 500,
+                'solde_a_payer' => -300,
+            ]),
+        ]);
+
+        $typeTotal = array_sum(array_column(MandatCounter::parType($rows), 'montant'));
+        $statutTotal = array_sum(array_column(MandatCounter::parStatut($rows), 'montant'));
+
+        $this->assertSame(1500.0, $typeTotal);
+        $this->assertSame($typeTotal, $statutTotal);
+    }
+
+    public function test_par_statut_counts_nav_lignes_per_status(): void
+    {
+        $rows = collect([
+            new Mouvement([
+                'type_mandat' => '0',
+                'source_numero_mandat' => '102',
+                'date_mouvement' => '2024-06-01',
+                'statut' => 'Payé',
+                'statut_code' => 'S92',
+                'montant' => 100,
+            ]),
+            new Mouvement([
+                'type_mandat' => '1',
+                'source_numero_mandat' => '102',
+                'date_mouvement' => '2024-06-02',
+                'statut' => 'Payé',
+                'statut_code' => 'S92',
+                'montant' => 200,
+            ]),
+            new Mouvement([
+                'type_mandat' => '0',
+                'source_numero_mandat' => '103',
+                'date_mouvement' => '2024-06-03',
+                'statut' => 'Visé',
+                'statut_code' => 'S03',
+                'montant' => 50,
+            ]),
+        ]);
+
+        $paye = collect(MandatCounter::parStatut($rows))->firstWhere('statut', 'Payé');
+
+        $this->assertSame(2, $paye['count']);
+        $this->assertSame(300.0, $paye['montant']);
+    }
 }

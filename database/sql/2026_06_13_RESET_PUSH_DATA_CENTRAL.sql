@@ -69,4 +69,5 @@ UNION ALL SELECT 'mouvements', COUNT(*) FROM mouvements
 UNION ALL SELECT 'banques_push', COUNT(*) FROM banques_push
 UNION ALL SELECT 'recettes_clients_push', COUNT(*) FROM recettes_clients_push;
 
+-- Puis sur NAV (SSMS) : exécuter 07_CREATE_V_DASHBOARD_MANDATS_LIGNES.sql
 -- Puis : php artisan aice:push-dashboard --periode=2024 --full-sync --force --clear-cache

@@ -29,10 +29,11 @@ class DashboardSummaryTest extends TestCase
             'region_id' => $region->id,
             'local_id' => 'RGF',
             'regional_id' => 'DASH-RGF-2024-06',
-            'total_recettes' => 1000,
-            'total_depenses' => 400,
+            'total_ordonnance' => 400,
+            'total_recouvrements_4121' => 1000,
+            'total_montant_paye' => 300,
             'solde' => 600,
-            'encaisse' => 50,
+            'tresorerie_reelle' => 50,
             'annee' => 2024,
             'mois' => 6,
         ]);
@@ -40,7 +41,7 @@ class DashboardSummaryTest extends TestCase
         $response = $this->getJson('/api/v1/dashboards/summary?region_code=RGF&annee=2024&mois=6');
 
         $response->assertOk();
-        $response->assertJsonPath('data.kpis.total_recettes', 1000);
+        $response->assertJsonPath('data.kpis.total_recouvrements_4121', 1000);
         $response->assertJsonPath('data.region.code', 'RGF');
     }
 
@@ -60,10 +61,11 @@ class DashboardSummaryTest extends TestCase
             'region_id' => $region->id,
             'local_id' => 'SAN',
             'regional_id' => 'DASH-SAN-2024',
-            'total_recettes' => 9999,
-            'total_depenses' => 9999,
+            'total_ordonnance' => 9999,
+            'total_recouvrements_4121' => 9999,
+            'total_montant_paye' => 0,
             'solde' => 0,
-            'encaisse' => 100,
+            'tresorerie_reelle' => 100,
             'annee' => 2024,
             'mois' => null,
         ]);
@@ -81,7 +83,7 @@ class DashboardSummaryTest extends TestCase
 
         $dashboard->mouvements()->create([
             'regional_id' => 'SAN-M-2',
-            'libelle' => 'Dépense test',
+            'libelle' => 'Mandat test',
             'montant' => 200,
             'type' => 'depense',
             'date_mouvement' => '2024-06-20',
@@ -94,8 +96,8 @@ class DashboardSummaryTest extends TestCase
         $response = $this->getJson('/api/v1/dashboards/summary?region_code=SAN&date_debut=2024-06-01&date_fin=2024-06-30');
 
         $response->assertOk();
-        $response->assertJsonPath('data.kpis.total_recettes', 500);
-        $response->assertJsonPath('data.kpis.total_depenses', 200);
+        $response->assertJsonPath('data.kpis.total_recouvrements_4121', 500);
+        $response->assertJsonPath('data.kpis.total_ordonnance', 200);
         $response->assertJsonPath('data.kpis.solde', 300);
         $response->assertJsonPath('data.meta.mouvements_count', 2);
     }
@@ -116,10 +118,11 @@ class DashboardSummaryTest extends TestCase
             'region_id' => $region->id,
             'local_id' => 'SAN',
             'regional_id' => 'DASH-SAN-MANDATS',
-            'total_recettes' => 0,
-            'total_depenses' => 0,
+            'total_ordonnance' => 0,
+            'total_recouvrements_4121' => 0,
+            'total_montant_paye' => 0,
             'solde' => 0,
-            'encaisse' => 0,
+            'tresorerie_reelle' => 0,
             'annee' => 2024,
             'mois' => null,
         ]);

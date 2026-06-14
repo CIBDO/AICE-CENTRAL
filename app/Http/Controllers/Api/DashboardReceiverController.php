@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessDashboardChunk;
 use App\Services\DashboardReceiveService;
+use App\Support\DashboardKpis;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -66,14 +67,17 @@ class DashboardReceiverController extends Controller
             'mouvements_count' => is_array($request->input('mouvements')) ? count($request->input('mouvements')) : null,
         ]);
 
+        $request->merge(DashboardKpis::normalizeIncomingPayload($request->all()));
+
         // Validation des données
         $validator = Validator::make($request->all(), [
             'local_id' => 'required|string|max:100',
-            'regional_id' => 'required|string|max:100', // ID unique côté régional (obligatoire pour upsert)
-            'total_recettes' => 'required|numeric|min:0',
-            'total_depenses' => 'required|numeric|min:0',
+            'regional_id' => 'required|string|max:100',
+            'total_ordonnance' => 'required|numeric|min:0',
+            'total_recouvrements_4121' => 'required|numeric|min:0',
+            'total_montant_paye' => 'required|numeric|min:0',
             'solde' => 'required|numeric',
-            'encaisse' => 'required|numeric|min:0',
+            'tresorerie_reelle' => 'required|numeric',
             // Champs de période (optionnels mais recommandés pour le filtrage)
             'annee' => 'nullable|integer|min:2000|max:2100',
             'mois' => 'nullable|integer|min:1|max:12',
@@ -95,6 +99,9 @@ class DashboardReceiverController extends Controller
             'mouvements.*.chapitre' => 'nullable|string|max:100',
             'mouvements.*.nature_ce' => 'nullable|string|max:100',
             'mouvements.*.statut' => 'nullable|string|max:50',
+            'mouvements.*.statut_code' => 'nullable|string|max:10',
+            'mouvements.*.montant_paye' => 'nullable|numeric',
+            'mouvements.*.solde_a_payer' => 'nullable|numeric',
             'mouvements.*.beneficiaire' => 'nullable|string|max:255',
             'mouvements.*.source_numero_mandat' => 'nullable|string|max:100',
             'mouvements.*.source_id' => 'nullable|string|max:100',
@@ -106,8 +113,8 @@ class DashboardReceiverController extends Controller
             'banques.*.numero_compte' => 'required_with:banques|string|max:50',
             'banques.*.libelle' => 'required_with:banques|string|max:255',
             'banques.*.date_mouvement' => 'nullable|date',
-            'banques.*.debit' => 'nullable|numeric|min:0',
-            'banques.*.credit' => 'nullable|numeric|min:0',
+            'banques.*.debit' => 'nullable|numeric',
+            'banques.*.credit' => 'nullable|numeric',
             'banques.*.solde' => 'nullable|numeric',
             'banques.*.reference' => 'nullable|string|max:100',
             'banques.*.entry_no' => 'nullable|string|max:50',
@@ -137,14 +144,16 @@ class DashboardReceiverController extends Controller
             'regional_id.required' => 'Le champ regional_id est requis pour le mode différentiel',
             'mouvements.*.regional_id.required' => 'Chaque mouvement doit avoir un regional_id unique',
             'local_id.required' => 'Le champ local_id est requis',
-            'total_recettes.required' => 'Le champ total_recettes est requis',
-            'total_recettes.numeric' => 'Le champ total_recettes doit être un nombre',
-            'total_depenses.required' => 'Le champ total_depenses est requis',
-            'total_depenses.numeric' => 'Le champ total_depenses doit être un nombre',
+            'total_ordonnance.required' => 'Le champ total_ordonnance est requis',
+            'total_ordonnance.numeric' => 'Le champ total_ordonnance doit être un nombre',
+            'total_recouvrements_4121.required' => 'Le champ total_recouvrements_4121 est requis',
+            'total_recouvrements_4121.numeric' => 'Le champ total_recouvrements_4121 doit être un nombre',
+            'total_montant_paye.required' => 'Le champ total_montant_paye est requis',
+            'total_montant_paye.numeric' => 'Le champ total_montant_paye doit être un nombre',
             'solde.required' => 'Le champ solde est requis',
             'solde.numeric' => 'Le champ solde doit être un nombre',
-            'encaisse.required' => 'Le champ encaisse est requis',
-            'encaisse.numeric' => 'Le champ encaisse doit être un nombre',
+            'tresorerie_reelle.required' => 'Le champ tresorerie_reelle est requis',
+            'tresorerie_reelle.numeric' => 'Le champ tresorerie_reelle doit être un nombre',
             'mouvements.present' => 'Le champ mouvements est requis (il peut être un tableau vide).',
             'mouvements.array' => 'Le champ mouvements doit être un tableau',
             'mouvements.*.libelle.required' => 'Chaque mouvement doit avoir un libellé',

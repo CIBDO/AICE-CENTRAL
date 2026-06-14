@@ -41,7 +41,7 @@ const heroStats = computed(() => {
 
   return [
     { label: 'Mandats', value: t.depenses_count.toLocaleString('fr-FR') },
-    { label: 'Montant dépenses', value: formatFcfa(t.montant_depenses) },
+    { label: 'Montant ordonnancé', value: formatFcfa(t.montant_ordonnance) },
     { label: 'Période', value: periodLabel.value },
   ]
 })
@@ -79,7 +79,7 @@ const kpiCards = computed(() => {
 
   return [
     { key: 'all', label: 'Mandats', value: t.depenses_count.toLocaleString('fr-FR'), accent: 'neutral' as const, icon: 'tabler-file-invoice' },
-    { key: 'montant', label: 'Montant dépenses', value: formatFcfa(t.montant_depenses), accent: 'depenses' as const, icon: 'tabler-currency-franc' },
+    { key: 'montant', label: 'Montant ordonnancé', value: formatFcfa(t.montant_ordonnance), accent: 'depenses' as const, icon: 'tabler-currency-franc' },
     { key: 'paye', label: 'Payés', value: payes.toLocaleString('fr-FR'), accent: 'recettes' as const, icon: 'tabler-check' },
     { key: 'admis', label: 'En attente', value: admis.toLocaleString('fr-FR'), accent: 'solde' as const, icon: 'tabler-clock' },
   ]

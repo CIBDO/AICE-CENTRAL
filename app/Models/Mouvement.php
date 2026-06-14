@@ -20,6 +20,8 @@ class Mouvement extends Model
         'regional_id', // ID unique côté régional pour upsert
         'libelle',
         'montant',
+        'montant_paye',
+        'solde_a_payer',
         'type',
         'date_mouvement',
         'annee',
@@ -31,6 +33,7 @@ class Mouvement extends Model
         'chapitre',
         'nature_ce',
         'statut',
+        'statut_code',
         'beneficiaire',
         'source_numero_mandat',
         'source_id',
@@ -45,6 +48,8 @@ class Mouvement extends Model
      */
     protected $casts = [
         'montant' => 'decimal:2',
+        'montant_paye' => 'decimal:2',
+        'solde_a_payer' => 'decimal:2',
         'date_mouvement' => 'date',
         'annee' => 'integer',
         'mois' => 'integer',

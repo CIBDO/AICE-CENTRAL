@@ -7,6 +7,12 @@ const colorMap: Record<string, string> = {
   'Payé': 'success',
   'Réglé': 'success',
   'Admis': 'warning',
+  'Précompté': 'warning',
+  'Proposé au paiement': 'info',
+  'Vérifié': 'info',
+  'Visé': 'info',
+  'Transmis': 'secondary',
+  'Réceptionné': 'secondary',
 }
 
 const chipColor = computed(() => {

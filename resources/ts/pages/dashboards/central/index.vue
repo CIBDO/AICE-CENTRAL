@@ -43,18 +43,20 @@ const globalKpis = computed(() => {
 
   if (!data) {
     return [
-      { label: 'Recettes', value: '—', accent: 'recettes' as KpiAccent, icon: 'tabler-trending-up' },
-      { label: 'Dépenses', value: '—', accent: 'depenses' as KpiAccent, icon: 'tabler-trending-down' },
-      { label: 'Solde', value: '—', accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
-      { label: 'Encaisse', value: '—', accent: 'encaisse' as KpiAccent, icon: 'tabler-vault' },
+      { label: 'Ordonnancé', value: '—', accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
+      { label: 'Recouvrements (4121)', value: '—', accent: 'recouvrements' as KpiAccent, icon: 'tabler-receipt' },
+      { label: 'Payé + Réglé', value: '—', accent: 'paye' as KpiAccent, icon: 'tabler-circle-check' },
+      { label: 'Trésorerie réelle', value: '—', accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
+      { label: 'Écart (4121 − ord.)', value: '—', accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
     ]
   }
 
   return [
-    { label: 'Recettes', value: formatFcfa(data.total_recettes), accent: 'recettes' as KpiAccent, icon: 'tabler-trending-up' },
-    { label: 'Dépenses', value: formatFcfa(data.total_depenses), accent: 'depenses' as KpiAccent, icon: 'tabler-trending-down' },
-    { label: 'Solde', value: formatFcfa(data.solde), accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
-    { label: 'Encaisse', value: formatFcfa(data.encaisse), accent: 'encaisse' as KpiAccent, icon: 'tabler-vault' },
+    { label: 'Ordonnancé', value: formatFcfa(data.total_ordonnance), accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
+    { label: 'Recouvrements (4121)', value: formatFcfa(data.total_recouvrements_4121), accent: 'recouvrements' as KpiAccent, icon: 'tabler-receipt' },
+    { label: 'Payé + Réglé', value: formatFcfa(data.total_montant_paye), accent: 'paye' as KpiAccent, icon: 'tabler-circle-check' },
+    { label: 'Trésorerie réelle', value: formatFcfa(data.tresorerie_reelle), accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
+    { label: 'Écart (4121 − ord.)', value: formatFcfa(data.solde), accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
   ]
 })
 
@@ -62,7 +64,7 @@ const recettesChart = computed(() => {
   const rows = summary.value?.regions.filter(r => r.meta.has_data) ?? []
   return {
     labels: rows.map(r => r.region.code),
-    datasets: [{ label: 'Recettes', data: rows.map(r => r.kpis.total_recettes) }],
+    datasets: [{ label: 'Recouvrements (4121)', data: rows.map(r => r.kpis.total_recouvrements_4121) }],
   }
 })
 
@@ -159,11 +161,12 @@ onMounted(() => loadDashboard())
 
     <VRow v-if="loading">
       <VCol
-        v-for="i in 4"
+        v-for="i in 5"
         :key="i"
         cols="12"
         sm="6"
-        lg="3"
+        lg="4"
+        xl="2"
       >
         <VSkeletonLoader type="card" />
       </VCol>
@@ -175,7 +178,8 @@ onMounted(() => loadDashboard())
         :key="kpi.label"
         cols="12"
         sm="6"
-        lg="3"
+        lg="4"
+        xl="2"
       >
         <KpiStat
           :label="kpi.label"
@@ -192,7 +196,7 @@ onMounted(() => loadDashboard())
         lg="5"
       >
         <DataPanel
-          title="Recettes par région"
+          title="Recouvrements (4121) par région"
           :subtitle="periodLabel"
         >
           <ChartWidget
@@ -227,16 +231,19 @@ onMounted(() => loadDashboard())
               <tr>
                 <th>Région</th>
                 <th class="text-end">
-                  Recettes
+                  Recouv. (4121)
                 </th>
                 <th class="text-end">
-                  Dépenses
+                  Ordonnancé
                 </th>
                 <th class="text-end">
-                  Solde
+                  Payé + Réglé
                 </th>
                 <th class="text-end">
-                  Encaisse
+                  Écart
+                </th>
+                <th class="text-end">
+                  Trésorerie
                 </th>
               </tr>
             </thead>
@@ -251,16 +258,19 @@ onMounted(() => loadDashboard())
                   <span class="text-medium-emphasis ms-1">({{ row.region.code }})</span>
                 </td>
                 <td class="text-end tabular-nums">
-                  {{ row.meta.has_data ? formatFcfa(row.kpis.total_recettes) : '—' }}
+                  {{ row.meta.has_data ? formatFcfa(row.kpis.total_recouvrements_4121) : '—' }}
                 </td>
                 <td class="text-end tabular-nums">
-                  {{ row.meta.has_data ? formatFcfa(row.kpis.total_depenses) : '—' }}
+                  {{ row.meta.has_data ? formatFcfa(row.kpis.total_ordonnance) : '—' }}
+                </td>
+                <td class="text-end tabular-nums">
+                  {{ row.meta.has_data ? formatFcfa(row.kpis.total_montant_paye) : '—' }}
                 </td>
                 <td class="text-end tabular-nums">
                   {{ row.meta.has_data ? formatFcfa(row.kpis.solde) : '—' }}
                 </td>
                 <td class="text-end tabular-nums">
-                  {{ row.meta.has_data ? formatFcfa(row.kpis.encaisse) : '—' }}
+                  {{ row.meta.has_data ? formatFcfa(row.kpis.tresorerie_reelle) : '—' }}
                 </td>
               </tr>
             </tbody>

@@ -1,8 +1,9 @@
 export interface DashboardKpis {
-  total_recettes: number
-  total_depenses: number
+  total_ordonnance: number
+  total_recouvrements_4121: number
+  total_montant_paye: number
+  tresorerie_reelle: number
   solde: number
-  encaisse: number
 }
 
 export interface MandatTypeRow {
@@ -48,7 +49,7 @@ export interface RegionOption {
   derniere_connexion: string | null
 }
 
-export type KpiAccent = 'recettes' | 'depenses' | 'solde' | 'encaisse' | 'neutral'
+export type KpiAccent = 'recouvrements' | 'ordonnance' | 'paye' | 'solde' | 'tresorerie' | 'neutral'
 
 export interface CentralRegionRow {
   region: {
@@ -106,14 +107,15 @@ export interface ExecutiveKpis {
     mandats_total: number
     mandats_admis: number
     mandats_rejetes: number
-    encaisse_total: number
-    recettes_total: number
-    depenses_total: number
+    tresorerie_reelle_total: number
+    recouvrements_4121_total: number
+    ordonnance_total: number
+    montant_paye_total: number
     solde_total: number
   }
   comparaison_mois_precedent: {
-    depenses_evolution_pct: number | null
-    recettes_evolution_pct: number | null
+    ordonnance_evolution_pct: number | null
+    recouvrements_evolution_pct: number | null
     mandats_evolution_pct: number | null
   }
   performance_regions: Array<{

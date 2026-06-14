@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Dashboard;
 use App\Models\Mouvement;
 use App\Models\Region;
+use App\Support\MandatCounter;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -45,14 +46,15 @@ class ExecutiveAnalyticsService
                     'mandats_total' => $stats['mandats_total'],
                     'mandats_admis' => $stats['mandats_admis'],
                     'mandats_rejetes' => $stats['mandats_rejetes'],
-                    'encaisse_total' => $central['global']['encaisse'],
-                    'recettes_total' => $central['global']['total_recettes'],
-                    'depenses_total' => $central['global']['total_depenses'],
+                    'tresorerie_reelle_total' => $central['global']['tresorerie_reelle'],
+                    'recouvrements_4121_total' => $central['global']['total_recouvrements_4121'],
+                    'ordonnance_total' => $central['global']['total_ordonnance'],
+                    'montant_paye_total' => $central['global']['total_montant_paye'],
                     'solde_total' => $central['global']['solde'],
                 ],
                 'comparaison_mois_precedent' => [
-                    'depenses_evolution_pct' => $this->evolutionPercent($stats['depenses_montant'], $prevStats['depenses_montant']),
-                    'recettes_evolution_pct' => $this->evolutionPercent($stats['recettes_montant'], $prevStats['recettes_montant']),
+                    'ordonnance_evolution_pct' => $this->evolutionPercent($stats['ordonnance_montant'], $prevStats['ordonnance_montant']),
+                    'recouvrements_evolution_pct' => $this->evolutionPercent($stats['recouvrements_montant'], $prevStats['recouvrements_montant']),
                     'mandats_evolution_pct' => $this->evolutionPercent($stats['mandats_total'], $prevStats['mandats_total']),
                 ],
                 'performance_regions' => $this->performanceRegionsForDateRange($dateDebut, $dateFin),
@@ -69,8 +71,8 @@ class ExecutiveAnalyticsService
         $prevMouvements = $this->mouvementsForPeriod($prev['annee'], $prev['mois']);
         $prevStats = $this->computeMouvementStats($prevMouvements);
 
-        $depensesEvolution = $this->evolutionPercent($stats['depenses_montant'], $prevStats['depenses_montant']);
-        $recettesEvolution = $this->evolutionPercent($stats['recettes_montant'], $prevStats['recettes_montant']);
+        $ordonnanceEvolution = $this->evolutionPercent($stats['ordonnance_montant'], $prevStats['ordonnance_montant']);
+        $recouvrementsEvolution = $this->evolutionPercent($stats['recouvrements_montant'], $prevStats['recouvrements_montant']);
 
         return [
             'periode' => ['annee' => $annee, 'mois' => $mois, 'date_debut' => null, 'date_fin' => null],
@@ -80,14 +82,15 @@ class ExecutiveAnalyticsService
                 'mandats_total' => $stats['mandats_total'],
                 'mandats_admis' => $stats['mandats_admis'],
                 'mandats_rejetes' => $stats['mandats_rejetes'],
-                'encaisse_total' => $central['global']['encaisse'],
-                'recettes_total' => $central['global']['total_recettes'],
-                'depenses_total' => $central['global']['total_depenses'],
+                'tresorerie_reelle_total' => $central['global']['tresorerie_reelle'],
+                'recouvrements_4121_total' => $central['global']['total_recouvrements_4121'],
+                'ordonnance_total' => $central['global']['total_ordonnance'],
+                'montant_paye_total' => $central['global']['total_montant_paye'],
                 'solde_total' => $central['global']['solde'],
             ],
             'comparaison_mois_precedent' => [
-                'depenses_evolution_pct' => $depensesEvolution,
-                'recettes_evolution_pct' => $recettesEvolution,
+                'ordonnance_evolution_pct' => $ordonnanceEvolution,
+                'recouvrements_evolution_pct' => $recouvrementsEvolution,
                 'mandats_evolution_pct' => $this->evolutionPercent($stats['mandats_total'], $prevStats['mandats_total']),
             ],
             'performance_regions' => $this->performanceRegions($annee, $mois),
@@ -247,7 +250,7 @@ class ExecutiveAnalyticsService
             $stats = $this->computeMouvementStats($mouvements);
             $prev = $this->previousDateRange($dateDebut, $dateFin);
             $prevStats = $this->computeMouvementStats($this->mouvementsForDateRange($prev['debut'], $prev['fin']));
-            $depensesEvolution = $this->evolutionPercent($stats['depenses_montant'], $prevStats['depenses_montant']);
+            $depensesEvolution = $this->evolutionPercent($stats['ordonnance_montant'], $prevStats['ordonnance_montant']);
 
             $tendance = 'stable';
             if ($depensesEvolution !== null) {
@@ -263,7 +266,7 @@ class ExecutiveAnalyticsService
                 $daysInRange,
                 max(1, Carbon::parse($dateDebut)->diffInDays(min(Carbon::parse($dateFin), Carbon::now())) + 1),
             );
-            $projection = ($stats['depenses_montant'] / $daysElapsed) * $daysInRange;
+            $projection = ($stats['ordonnance_montant'] / $daysElapsed) * $daysInRange;
 
             return [
                 'tendance_depenses' => [
@@ -276,7 +279,7 @@ class ExecutiveAnalyticsService
                     },
                 ],
                 'projection_depenses_fin_mois' => round($projection, 2),
-                'depenses_mois_courant' => $stats['depenses_montant'],
+                'depenses_mois_courant' => $stats['ordonnance_montant'],
             ];
         }
 
@@ -287,7 +290,7 @@ class ExecutiveAnalyticsService
         $prev = $this->previousPeriod($annee, $mois);
         $prevStats = $this->computeMouvementStats($this->mouvementsForPeriod($prev['annee'], $prev['mois']));
 
-        $depensesEvolution = $this->evolutionPercent($stats['depenses_montant'], $prevStats['depenses_montant']);
+        $depensesEvolution = $this->evolutionPercent($stats['ordonnance_montant'], $prevStats['ordonnance_montant']);
 
         $tendance = 'stable';
         if ($depensesEvolution !== null) {
@@ -301,7 +304,7 @@ class ExecutiveAnalyticsService
         $jourDuMois = Carbon::create($annee, $mois, 1)->daysInMonth;
         $jourActuel = min(Carbon::now()->day, $jourDuMois);
         $projectionFinMois = $jourActuel > 0
-            ? ($stats['depenses_montant'] / $jourActuel) * $jourDuMois
+            ? ($stats['ordonnance_montant'] / $jourActuel) * $jourDuMois
             : 0;
 
         return [
@@ -315,7 +318,7 @@ class ExecutiveAnalyticsService
                 },
             ],
             'projection_depenses_fin_mois' => round($projectionFinMois, 2),
-            'depenses_mois_courant' => $stats['depenses_montant'],
+            'depenses_mois_courant' => $stats['ordonnance_montant'],
         ];
     }
 
@@ -426,29 +429,7 @@ class ExecutiveAnalyticsService
     /** @param Collection<int, Mouvement> $mouvements */
     private function computeMouvementStats(Collection $mouvements): array
     {
-        $depenses = $mouvements->where('type', 'depense');
-        $recettes = $mouvements->where('type', 'recette');
-
-        $mandatsTotal = $depenses->count();
-        $mandatsRejetes = $depenses->filter(fn (Mouvement $m) => str_contains((string) $m->statut, 'Rejet'))->count();
-        $mandatsAdmis = $depenses->filter(fn (Mouvement $m) => ($m->statut ?? '') === 'Admis')->count();
-        $mandatsPayes = $depenses->filter(fn (Mouvement $m) => in_array($m->statut ?? '', ['Payé', 'Réglé'], true))->count();
-
-        $depensesMontant = (float) $depenses->sum('montant');
-        $recettesMontant = (float) $recettes->sum('montant');
-        $montantPaye = (float) $depenses->filter(fn (Mouvement $m) => in_array($m->statut ?? '', ['Payé', 'Réglé'], true))->sum('montant');
-        $montantTotal = $depensesMontant;
-
-        return [
-            'mandats_total' => $mandatsTotal,
-            'mandats_rejetes' => $mandatsRejetes,
-            'mandats_admis' => $mandatsAdmis,
-            'mandats_payes' => $mandatsPayes,
-            'depenses_montant' => $depensesMontant,
-            'recettes_montant' => $recettesMontant,
-            'taux_rejet' => $mandatsTotal > 0 ? round(($mandatsRejetes / $mandatsTotal) * 100, 1) : 0.0,
-            'taux_execution' => $montantTotal > 0 ? round(($montantPaye / $montantTotal) * 100, 1) : 0.0,
-        ];
+        return MandatCounter::computeHierarchyStats($mouvements);
     }
 
     /** @return array{annee: int, mois: int} */

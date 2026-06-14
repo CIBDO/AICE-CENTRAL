@@ -40,8 +40,8 @@ export interface MouvementStats {
     count: number
     depenses_count: number
     recettes_count: number
-    montant_depenses: number
-    montant_recettes: number
+    montant_ordonnance: number
+    montant_recouvrements_4121: number
     montant_total: number
   }
   par_statut: GroupStatRow[]
@@ -123,8 +123,8 @@ export interface ProgrammeStats {
   totaux: {
     programmes_count: number
     mandats_count: number
-    montant_depenses: number
-    montant_recettes: number
+    montant_ordonnance: number
+    montant_recouvrements_4121: number
     taux_execution_pct: number
   }
   programmes: ProgrammeRow[]

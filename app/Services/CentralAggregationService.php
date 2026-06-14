@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Models\Dashboard;
 use App\Models\Mouvement;
+use App\Models\RecetteClientPush;
 use App\Models\Region;
+use App\Support\DashboardKpis;
+use App\Support\MandatCounter;
 use Illuminate\Support\Collection;
 
 class CentralAggregationService
@@ -25,12 +28,7 @@ class CentralAggregationService
         $regions = Region::query()->actives()->ordered()->get();
 
         $regionRows = [];
-        $global = [
-            'total_recettes' => 0.0,
-            'total_depenses' => 0.0,
-            'solde' => 0.0,
-            'encaisse' => 0.0,
-        ];
+        $global = DashboardKpis::empty();
 
         $regionsWithData = 0;
         $latestUpdate = null;
@@ -43,10 +41,12 @@ class CentralAggregationService
                 $mouvementsCount = $this->mouvementsForDashboard($dashboard, $annee, $mois)->count();
                 $regionsWithData++;
 
-                $global['total_recettes'] += (float) $dashboard->total_recettes;
-                $global['total_depenses'] += (float) $dashboard->total_depenses;
-                $global['solde'] += (float) $dashboard->solde;
-                $global['encaisse'] += (float) $dashboard->encaisse;
+                $dashboardKpis = DashboardKpis::fromDashboard($dashboard);
+                $global['total_ordonnance'] += $dashboardKpis['total_ordonnance'];
+                $global['total_recouvrements_4121'] += $dashboardKpis['total_recouvrements_4121'];
+                $global['total_montant_paye'] += $dashboardKpis['total_montant_paye'];
+                $global['solde'] += $dashboardKpis['solde'];
+                $global['tresorerie_reelle'] += $dashboardKpis['tresorerie_reelle'];
 
                 if ($dashboard->updated_at && ($latestUpdate === null || $dashboard->updated_at->gt($latestUpdate))) {
                     $latestUpdate = $dashboard->updated_at;
@@ -81,12 +81,7 @@ class CentralAggregationService
         $regions = Region::query()->actives()->ordered()->get();
 
         $regionRows = [];
-        $global = [
-            'total_recettes' => 0.0,
-            'total_depenses' => 0.0,
-            'solde' => 0.0,
-            'encaisse' => 0.0,
-        ];
+        $global = DashboardKpis::empty();
 
         $regionsWithData = 0;
         $latestUpdate = null;
@@ -101,22 +96,29 @@ class CentralAggregationService
                 ->whereBetween('date_mouvement', [$dateDebut, $dateFin])
                 ->get();
 
-            $mouvementsCount = $mouvements->count();
+            $mouvementsCount = MandatCounter::dedupeRows($mouvements)->count();
             $latestDashboard = Dashboard::query()
                 ->where('region_id', $region->id)
                 ->orderByDesc('updated_at')
                 ->first();
 
             if ($mouvementsCount > 0) {
-                $recettes = (float) $mouvements->where('type', 'recette')->sum('montant');
-                $depenses = (float) $mouvements->where('type', 'depense')->sum('montant');
-                $encaisse = $latestDashboard ? (float) $latestDashboard->encaisse : 0.0;
+                $financial = MandatCounter::financialTotals($mouvements);
+                $recouvrements = $financial['total_recouvrements_4121'] > 0
+                    ? $financial['total_recouvrements_4121']
+                    : $this->recettesForDateRange($dashboardIds, $dateDebut, $dateFin);
+                $regionKpis = DashboardKpis::fromFinancialTotals([
+                    'total_ordonnance' => $financial['total_ordonnance'],
+                    'total_recouvrements_4121' => $recouvrements,
+                    'total_montant_paye' => $financial['total_montant_paye'],
+                ], $latestDashboard ? (float) $latestDashboard->tresorerie_reelle : 0.0);
 
                 $regionsWithData++;
-                $global['total_recettes'] += $recettes;
-                $global['total_depenses'] += $depenses;
-                $global['solde'] += $recettes - $depenses;
-                $global['encaisse'] += $encaisse;
+                $global['total_ordonnance'] += $regionKpis['total_ordonnance'];
+                $global['total_recouvrements_4121'] += $regionKpis['total_recouvrements_4121'];
+                $global['total_montant_paye'] += $regionKpis['total_montant_paye'];
+                $global['solde'] += $regionKpis['solde'];
+                $global['tresorerie_reelle'] += $regionKpis['tresorerie_reelle'];
 
                 if ($latestDashboard?->updated_at && ($latestUpdate === null || $latestDashboard->updated_at->gt($latestUpdate))) {
                     $latestUpdate = $latestDashboard->updated_at;
@@ -127,12 +129,7 @@ class CentralAggregationService
                         'code' => $region->code,
                         'nom' => $region->nom,
                     ],
-                    'kpis' => [
-                        'total_recettes' => $recettes,
-                        'total_depenses' => $depenses,
-                        'solde' => $recettes - $depenses,
-                        'encaisse' => $encaisse,
-                    ],
+                    'kpis' => $regionKpis,
                     'meta' => [
                         'has_data' => true,
                         'mouvements_count' => $mouvementsCount,
@@ -169,17 +166,7 @@ class CentralAggregationService
                 'code' => $region->code,
                 'nom' => $region->nom,
             ],
-            'kpis' => $dashboard ? [
-                'total_recettes' => (float) $dashboard->total_recettes,
-                'total_depenses' => (float) $dashboard->total_depenses,
-                'solde' => (float) $dashboard->solde,
-                'encaisse' => (float) $dashboard->encaisse,
-            ] : [
-                'total_recettes' => 0.0,
-                'total_depenses' => 0.0,
-                'solde' => 0.0,
-                'encaisse' => 0.0,
-            ],
+            'kpis' => $dashboard ? DashboardKpis::fromDashboard($dashboard) : DashboardKpis::empty(),
             'meta' => [
                 'has_data' => $dashboard !== null,
                 'mouvements_count' => $mouvementsCount,
@@ -221,5 +208,28 @@ class CentralAggregationService
         }
 
         return $query->get();
+    }
+
+    /**
+     * @param  Collection<int, int|string>  $dashboardIds
+     */
+    private function recettesForDateRange(Collection $dashboardIds, string $dateDebut, string $dateFin): float
+    {
+        if ($dashboardIds->isEmpty()) {
+            return 0.0;
+        }
+
+        return (float) RecetteClientPush::query()
+            ->whereIn('dashboard_id', $dashboardIds)
+            ->where(function ($query) use ($dateDebut, $dateFin) {
+                $query->whereBetween('date_posting', [$dateDebut, $dateFin])
+                    ->orWhere(function ($fallback) use ($dateDebut) {
+                        $fallback->whereNull('date_posting')
+                            ->where('exercice', (int) substr($dateDebut, 0, 4));
+                    });
+            })
+            ->get()
+            ->unique('regional_id')
+            ->sum(fn (RecetteClientPush $r) => (float) $r->montant);
     }
 }

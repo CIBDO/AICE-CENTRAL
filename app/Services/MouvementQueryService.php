@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Mouvement;
 use App\Support\DetailQueryFilters;
+use App\Support\MandatCounter;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -75,23 +76,28 @@ class MouvementQueryService
      */
     public function stats(array $filters): array
     {
-        $rows = $this->baseQuery($filters)->get();
-
-        $depenses = $rows->where('type', 'depense');
-        $recettes = $rows->where('type', 'recette');
+        $rows = MandatCounter::dedupeRows($this->baseQuery($filters)->get());
+        $financial = MandatCounter::financialTotals($rows);
+        $mandats = MandatCounter::mandatsForStats($rows);
 
         return [
             'totaux' => [
                 'count' => $rows->count(),
-                'depenses_count' => $depenses->count(),
-                'recettes_count' => $recettes->count(),
-                'montant_depenses' => (float) $depenses->sum('montant'),
-                'montant_recettes' => (float) $recettes->sum('montant'),
-                'montant_total' => (float) $rows->sum('montant'),
+                'depenses_count' => $mandats->count(),
+                'recettes_count' => $rows->where('type', 'recette')->count(),
+                'montant_ordonnance' => $financial['total_ordonnance'],
+                'montant_recouvrements_4121' => $financial['total_recouvrements_4121'],
+                'montant_total' => $financial['total_ordonnance'] + $financial['total_recouvrements_4121'],
             ],
-            'par_statut' => $this->groupStat($depenses, 'statut'),
-            'par_type_mandat' => $this->groupTypeMandat($depenses),
-            'par_programme' => $this->groupStat($depenses, 'code_programme', 8),
+            'par_statut' => array_map(
+                fn (array $row) => ['label' => $row['statut'], 'count' => $row['count'], 'montant' => $row['montant']],
+                MandatCounter::parStatut($rows)
+            ),
+            'par_type_mandat' => array_map(
+                fn (array $row) => ['label' => $row['libelle'], 'code' => $row['code'], 'count' => $row['count'], 'montant' => $row['montant']],
+                MandatCounter::parType($rows)
+            ),
+            'par_programme' => $this->groupStat($mandats, 'code_programme', 8),
             'par_jour' => $this->groupByDay($rows),
         ];
     }

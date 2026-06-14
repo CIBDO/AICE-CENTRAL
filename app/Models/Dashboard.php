@@ -20,10 +20,11 @@ class Dashboard extends Model
         'region_id',
         'local_id',
         'regional_id', // ID unique côté régional pour upsert
-        'total_recettes',
-        'total_depenses',
+        'total_ordonnance',
+        'total_recouvrements_4121',
+        'total_montant_paye',
         'solde',
-        'encaisse',
+        'tresorerie_reelle',
         'annee',
         'mois',
         'date_debut',
@@ -36,10 +37,11 @@ class Dashboard extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'total_recettes' => 'decimal:2',
-        'total_depenses' => 'decimal:2',
+        'total_ordonnance' => 'decimal:2',
+        'total_recouvrements_4121' => 'decimal:2',
+        'total_montant_paye' => 'decimal:2',
         'solde' => 'decimal:2',
-        'encaisse' => 'decimal:2',
+        'tresorerie_reelle' => 'decimal:2',
         'annee' => 'integer',
         'mois' => 'integer',
         'date_debut' => 'date',

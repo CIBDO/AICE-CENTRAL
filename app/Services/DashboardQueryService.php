@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Dashboard;
 use App\Models\Mouvement;
+use App\Models\RecetteClientPush;
 use App\Models\Region;
+use App\Support\DashboardKpis;
 use App\Support\MandatCounter;
 use Illuminate\Support\Collection;
 
@@ -59,21 +61,27 @@ class DashboardQueryService
         $mouvements = Mouvement::query()
             ->whereIn('dashboard_id', $dashboardIds)
             ->whereBetween('date_mouvement', [$dateDebut, $dateFin])
-            ->get()
-            ->unique('regional_id')
-            ->values();
+            ->get();
 
         if ($mouvements->isEmpty()) {
             return $this->emptySummary($region, $dateDebut, $dateFin);
         }
 
-        $recettes = (float) $mouvements->where('type', 'recette')->sum('montant');
-        $depenses = (float) $mouvements->where('type', 'depense')->sum('montant');
+        $financial = MandatCounter::financialTotals($mouvements);
+        $recouvrements = $financial['total_recouvrements_4121'] > 0
+            ? $financial['total_recouvrements_4121']
+            : $this->recettesForDateRange($dashboardIds, $dateDebut, $dateFin);
 
         $latestDashboard = Dashboard::query()
             ->where('region_id', $region->id)
             ->orderByDesc('updated_at')
             ->first();
+
+        $kpis = DashboardKpis::fromFinancialTotals([
+            'total_ordonnance' => $financial['total_ordonnance'],
+            'total_recouvrements_4121' => $recouvrements,
+            'total_montant_paye' => $financial['total_montant_paye'],
+        ], $latestDashboard ? (float) $latestDashboard->tresorerie_reelle : 0.0);
 
         return [
             'region' => [
@@ -86,21 +94,39 @@ class DashboardQueryService
                 'date_debut' => $dateDebut,
                 'date_fin' => $dateFin,
             ],
-            'kpis' => [
-                'total_recettes' => $recettes,
-                'total_depenses' => $depenses,
-                'solde' => $recettes - $depenses,
-                'encaisse' => $latestDashboard ? (float) $latestDashboard->encaisse : 0,
-            ],
+            'kpis' => $kpis,
             'mandats_par_type' => $this->mandatsParType($mouvements),
             'statuts_mandats' => $this->statutsMandats($mouvements),
             'meta' => [
                 'dashboard_id' => $latestDashboard?->id,
                 'regional_id' => $latestDashboard?->regional_id,
                 'derniere_mise_a_jour' => $latestDashboard?->updated_at?->toIso8601String(),
-                'mouvements_count' => $mouvements->count(),
+                'mouvements_count' => MandatCounter::dedupeRows($mouvements)->count(),
             ],
         ];
+    }
+
+    /**
+     * @param  Collection<int, int|string>  $dashboardIds
+     */
+    private function recettesForDateRange(Collection $dashboardIds, string $dateDebut, string $dateFin): float
+    {
+        if ($dashboardIds->isEmpty()) {
+            return 0.0;
+        }
+
+        return (float) RecetteClientPush::query()
+            ->whereIn('dashboard_id', $dashboardIds)
+            ->where(function ($query) use ($dateDebut, $dateFin) {
+                $query->whereBetween('date_posting', [$dateDebut, $dateFin])
+                    ->orWhere(function ($fallback) use ($dateDebut) {
+                        $fallback->whereNull('date_posting')
+                            ->where('exercice', (int) substr($dateDebut, 0, 4));
+                    });
+            })
+            ->get()
+            ->unique('regional_id')
+            ->sum(fn (RecetteClientPush $r) => (float) $r->montant);
     }
 
     /**
@@ -115,12 +141,7 @@ class DashboardQueryService
                 'nom' => $region->nom,
             ],
             'periode' => $periode,
-            'kpis' => [
-                'total_recettes' => (float) $dashboard->total_recettes,
-                'total_depenses' => (float) $dashboard->total_depenses,
-                'solde' => (float) $dashboard->solde,
-                'encaisse' => (float) $dashboard->encaisse,
-            ],
+            'kpis' => DashboardKpis::fromDashboard($dashboard),
             'mandats_par_type' => $this->mandatsParType($mouvements),
             'statuts_mandats' => $this->statutsMandats($mouvements),
             'meta' => [
@@ -210,19 +231,7 @@ class DashboardQueryService
     /** @param Collection<int, Mouvement> $mouvements */
     private function statutsMandats(Collection $mouvements): array
     {
-        $mandats = MandatCounter::dedupeForCount(MandatCounter::filterMandats($mouvements));
-
-        return $mandats
-            ->groupBy(fn (Mouvement $m) => $m->statut ?: 'Non renseigné')
-            ->map(fn (Collection $group, string $statut) => [
-                'statut' => $statut,
-                'count' => $group->count(),
-                'montant' => (float) $group->sum('montant'),
-            ])
-            ->values()
-            ->sortByDesc('count')
-            ->values()
-            ->all();
+        return MandatCounter::parStatut($mouvements);
     }
 
     /** @return array<string, mixed> */
@@ -242,12 +251,7 @@ class DashboardQueryService
                 'date_debut' => $dateDebut,
                 'date_fin' => $dateFin,
             ],
-            'kpis' => [
-                'total_recettes' => 0,
-                'total_depenses' => 0,
-                'solde' => 0,
-                'encaisse' => 0,
-            ],
+            'kpis' => DashboardKpis::empty(),
             'mandats_par_type' => [],
             'statuts_mandats' => [],
             'meta' => [

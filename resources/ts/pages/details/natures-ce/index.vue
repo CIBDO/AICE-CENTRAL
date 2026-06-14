@@ -78,7 +78,7 @@ const kpiCards = computed(() => {
   return [
     { key: 'natures', label: 'Natures CE actives', value: String(t.natures_ce_count), accent: 'neutral' as const, icon: 'tabler-category' },
     { key: 'mandats', label: 'Mandats', value: t.mandats_count.toLocaleString('fr-FR'), accent: 'depenses' as const, icon: 'tabler-file-invoice' },
-    { key: 'montant', label: 'Montant dépenses', value: formatFcfa(t.montant_depenses), accent: 'solde' as const, icon: 'tabler-currency-franc' },
+    { key: 'montant', label: 'Montant ordonnancé', value: formatFcfa(t.montant_ordonnance), accent: 'solde' as const, icon: 'tabler-currency-franc' },
     { key: 'execution', label: 'Taux exécution', value: formatPercent(t.taux_execution_pct), accent: 'recettes' as const, icon: 'tabler-percentage' },
   ]
 })

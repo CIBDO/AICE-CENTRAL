@@ -7,6 +7,7 @@ use App\Models\Dashboard;
 use App\Models\Mouvement;
 use App\Models\RecetteClientPush;
 use App\Models\Region;
+use App\Support\DashboardKpis;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +22,8 @@ class DashboardReceiveService
         return DB::transaction(function () use ($regionId, $payload) {
             $region = Region::findOrFail($regionId);
 
+            $kpis = DashboardKpis::normalizeIncomingPayload($payload);
+
             $dashboard = Dashboard::updateOrCreate(
                 [
                     'region_id' => $regionId,
@@ -28,10 +31,11 @@ class DashboardReceiveService
                 ],
                 [
                     'local_id' => $payload['local_id'],
-                    'total_recettes' => $payload['total_recettes'],
-                    'total_depenses' => $payload['total_depenses'],
-                    'solde' => $payload['solde'],
-                    'encaisse' => $payload['encaisse'],
+                    'total_ordonnance' => $kpis['total_ordonnance'],
+                    'total_recouvrements_4121' => $kpis['total_recouvrements_4121'],
+                    'total_montant_paye' => $kpis['total_montant_paye'],
+                    'solde' => $kpis['solde'],
+                    'tresorerie_reelle' => $kpis['tresorerie_reelle'],
                     'annee' => $payload['annee'] ?? null,
                     'mois' => $payload['mois'] ?? null,
                     'date_debut' => $payload['date_debut'] ?? null,
@@ -109,6 +113,9 @@ class DashboardReceiveService
                 'chapitre' => $data['chapitre'] ?? null,
                 'nature_ce' => $data['nature_ce'] ?? null,
                 'statut' => $data['statut'] ?? null,
+                'statut_code' => $data['statut_code'] ?? null,
+                'montant_paye' => $data['montant_paye'] ?? null,
+                'solde_a_payer' => $data['solde_a_payer'] ?? null,
                 'beneficiaire' => $data['beneficiaire'] ?? null,
                 'source_numero_mandat' => $data['source_numero_mandat'] ?? null,
                 'source_id' => $data['source_id'] ?? null,

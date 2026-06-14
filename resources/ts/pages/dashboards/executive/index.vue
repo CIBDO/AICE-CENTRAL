@@ -39,7 +39,7 @@ const strategicKpis = computed(() => {
     return [
       { label: 'Taux d\'exécution', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-percentage' },
       { label: 'Taux de rejet', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-alert-triangle' },
-      { label: 'Encaisse nationale', value: '—', accent: 'encaisse' as KpiAccent, icon: 'tabler-vault' },
+      { label: 'Trésorerie nationale', value: '—', accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
       { label: 'Mandats en attente', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
     ]
   }
@@ -47,7 +47,7 @@ const strategicKpis = computed(() => {
   return [
     { label: 'Taux d\'exécution', value: formatPercent(ind.taux_execution), accent: 'solde' as KpiAccent, icon: 'tabler-percentage' },
     { label: 'Taux de rejet', value: formatPercent(ind.taux_rejet), accent: 'depenses' as KpiAccent, icon: 'tabler-alert-triangle' },
-    { label: 'Encaisse nationale', value: formatFcfa(ind.encaisse_total), accent: 'encaisse' as KpiAccent, icon: 'tabler-vault' },
+    { label: 'Trésorerie nationale', value: formatFcfa(ind.tresorerie_reelle_total), accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
     { label: 'Mandats en attente', value: ind.mandats_admis.toLocaleString('fr-FR'), accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
   ]
 })

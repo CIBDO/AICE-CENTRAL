@@ -42,17 +42,22 @@ class DemoDashboardSeeder extends Seeder
                 $banques = $this->buildBanques($region->code, $annee, $mois);
                 $recettes = $this->buildRecettesClients($region->code, $annee, $mois);
 
-                $totalDepenses = collect($mouvements)->where('type', 'depense')->sum('montant');
-                $totalRecettes = collect($mouvements)->where('type', 'recette')->sum('montant')
+                $totalOrdonnance = collect($mouvements)->where('type', 'depense')->sum('montant');
+                $totalRecouvrements = collect($mouvements)->where('type', 'recette')->sum('montant')
                     + collect($recettes)->sum('montant');
+                $totalMontantPaye = collect($mouvements)
+                    ->where('type', 'depense')
+                    ->filter(fn (array $m) => in_array($m['statut'] ?? '', ['Payé', 'Réglé'], true))
+                    ->sum(fn (array $m) => (float) ($m['montant_paye'] ?? $m['montant'] ?? 0));
 
                 $service->handle($region->id, [
                     'local_id' => $region->code,
                     'regional_id' => $regionalId,
-                    'total_recettes' => round($totalRecettes, 2),
-                    'total_depenses' => round($totalDepenses, 2),
-                    'solde' => round($totalRecettes - $totalDepenses, 2),
-                    'encaisse' => round($totalRecettes * 0.15, 2),
+                    'total_ordonnance' => round($totalOrdonnance, 2),
+                    'total_recouvrements_4121' => round($totalRecouvrements, 2),
+                    'total_montant_paye' => round($totalMontantPaye, 2),
+                    'solde' => round($totalRecouvrements - $totalOrdonnance, 2),
+                    'tresorerie_reelle' => round($totalRecouvrements * 0.15, 2),
                     'annee' => $annee,
                     'mois' => $mois,
                     'date_debut' => $date->copy()->startOfMonth()->toDateString(),

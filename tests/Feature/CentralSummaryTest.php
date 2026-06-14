@@ -40,10 +40,11 @@ class CentralSummaryTest extends TestCase
             'region_id' => $rgf->id,
             'local_id' => 'RGF',
             'regional_id' => 'D1',
-            'total_recettes' => 1000,
-            'total_depenses' => 400,
+            'total_ordonnance' => 400,
+            'total_recouvrements_4121' => 1000,
+            'total_montant_paye' => 300,
             'solde' => 600,
-            'encaisse' => 50,
+            'tresorerie_reelle' => 50,
             'annee' => 2024,
             'mois' => 6,
         ]);
@@ -52,10 +53,11 @@ class CentralSummaryTest extends TestCase
             'region_id' => $rgd->id,
             'local_id' => 'RGD',
             'regional_id' => 'D2',
-            'total_recettes' => 2000,
-            'total_depenses' => 800,
+            'total_ordonnance' => 800,
+            'total_recouvrements_4121' => 2000,
+            'total_montant_paye' => 0,
             'solde' => 1200,
-            'encaisse' => 100,
+            'tresorerie_reelle' => 100,
             'annee' => 2024,
             'mois' => 6,
         ]);
@@ -63,8 +65,8 @@ class CentralSummaryTest extends TestCase
         $response = $this->getJson('/api/v1/central/summary?annee=2024&mois=6');
 
         $response->assertOk();
-        $response->assertJsonPath('data.global.total_recettes', 3000);
-        $response->assertJsonPath('data.global.total_depenses', 1200);
+        $response->assertJsonPath('data.global.total_recouvrements_4121', 3000);
+        $response->assertJsonPath('data.global.total_ordonnance', 1200);
         $response->assertJsonPath('data.meta.regions_avec_donnees', 2);
         $response->assertJsonCount(2, 'data.regions');
     }

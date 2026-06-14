@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Mouvement;
 use App\Support\DetailQueryFilters;
+use App\Support\MandatCounter;
+use App\Support\StatutNormalizer;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -42,32 +44,41 @@ class ProgrammeQueryService
      */
     public function stats(array $filters): array
     {
-        $allDepenses = $this->baseQuery($filters, applyProgrammeFilter: false)
-            ->where('type', 'depense')
-            ->get();
+        $allRows = MandatCounter::dedupeRows(
+            $this->baseQuery($filters, applyProgrammeFilter: false)->get()
+        );
+        $filteredRows = MandatCounter::dedupeRows($this->baseQuery($filters)->get());
+        $allMandats = MandatCounter::mandatsForStats($allRows);
+        $filteredMandats = MandatCounter::mandatsForStats($filteredRows);
+        $financial = MandatCounter::financialTotals($filteredRows);
 
-        $filtered = $this->baseQuery($filters)->get();
-        $depenses = $filtered->where('type', 'depense');
-        $recettes = $filtered->where('type', 'recette');
-
-        $payes = $depenses->filter(fn (Mouvement $m) => $m->statut === 'Payé')->count();
-        $depenseTotal = (float) $depenses->sum('montant');
+        $statut = fn (Mouvement $m): string => StatutNormalizer::normalize($m->statut, $m->statut_code) ?? '';
+        $payes = $filteredMandats->filter(
+            fn (Mouvement $m) => in_array($statut($m), ['Payé', 'Réglé'], true)
+        )->count();
+        $mandatsCount = $filteredMandats->count();
 
         return [
             'totaux' => [
-                'programmes_count' => $this->buildProgrammeList($allDepenses)->count(),
-                'mandats_count' => $depenses->count(),
-                'montant_depenses' => $depenseTotal,
-                'montant_recettes' => (float) $recettes->sum('montant'),
-                'taux_execution_pct' => $depenses->count() > 0
-                    ? round(($payes / $depenses->count()) * 100, 1)
+                'programmes_count' => $this->buildProgrammeList($allMandats)->count(),
+                'mandats_count' => $mandatsCount,
+                'montant_ordonnance' => $financial['total_ordonnance'],
+                'montant_recouvrements_4121' => $financial['total_recouvrements_4121'],
+                'taux_execution_pct' => $mandatsCount > 0
+                    ? round(($payes / $mandatsCount) * 100, 1)
                     : 0,
             ],
-            'programmes' => $this->buildProgrammeList($allDepenses)->values()->all(),
-            'par_statut' => $this->groupStat($depenses, 'statut'),
-            'par_chapitre' => $this->groupStat($depenses, 'chapitre', 10),
-            'par_type_mandat' => $this->groupTypeMandat($depenses),
-            'par_jour' => $this->groupByDay($depenses),
+            'programmes' => $this->buildProgrammeList($allMandats)->values()->all(),
+            'par_statut' => array_map(
+                fn (array $row) => ['label' => $row['statut'], 'count' => $row['count'], 'montant' => $row['montant']],
+                MandatCounter::parStatut($filteredRows)
+            ),
+            'par_chapitre' => $this->groupStat($filteredMandats, 'chapitre', 10),
+            'par_type_mandat' => array_map(
+                fn (array $row) => ['label' => $row['libelle'], 'code' => $row['code'], 'count' => $row['count'], 'montant' => $row['montant']],
+                MandatCounter::parType($filteredRows)
+            ),
+            'par_jour' => $this->groupByDay($filteredMandats),
         ];
     }
 
@@ -114,19 +125,23 @@ class ProgrammeQueryService
     /** @param Collection<int, Mouvement> $rows */
     private function buildProgrammeList(Collection $rows): Collection
     {
+        $statut = fn (Mouvement $m): string => StatutNormalizer::normalize($m->statut, $m->statut_code) ?? '';
+
         return $rows
             ->groupBy(fn (Mouvement $m) => $m->code_programme ?: 'Non renseigné')
-            ->map(function (Collection $group, string $code) {
-                $payes = $group->where('statut', 'Payé')->count();
+            ->map(function (Collection $group, string $code) use ($statut) {
+                $payes = $group->filter(
+                    fn (Mouvement $m) => in_array($statut($m), ['Payé', 'Réglé'], true)
+                )->count();
                 $count = $group->count();
 
                 return [
                     'code' => $code,
                     'libelle' => $group->first()->programme ?: ('Programme ' . $code),
                     'count' => $count,
-                    'montant_depenses' => (float) $group->sum('montant'),
+                    'montant_depenses' => (float) $group->sum(fn (Mouvement $m) => StatutNormalizer::montantForStatut($m)),
                     'paye_count' => $payes,
-                    'admis_count' => $group->where('statut', 'Admis')->count(),
+                    'admis_count' => $group->filter(fn (Mouvement $m) => $statut($m) === 'Admis')->count(),
                     'taux_execution_pct' => $count > 0 ? round(($payes / $count) * 100, 1) : 0,
                 ];
             })

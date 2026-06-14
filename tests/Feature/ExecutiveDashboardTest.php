@@ -31,10 +31,11 @@ class ExecutiveDashboardTest extends TestCase
             'region_id' => $region->id,
             'local_id' => 'RGF',
             'regional_id' => 'D1',
-            'total_recettes' => 1000,
-            'total_depenses' => 400,
+            'total_ordonnance' => 400,
+            'total_recouvrements_4121' => 1000,
+            'total_montant_paye' => 100,
             'solde' => 600,
-            'encaisse' => 50,
+            'tresorerie_reelle' => 50,
             'annee' => 2024,
             'mois' => 6,
         ]);
@@ -45,6 +46,7 @@ class ExecutiveDashboardTest extends TestCase
             'libelle' => 'Mandat test',
             'montant' => 100,
             'type' => 'depense',
+            'type_mandat' => '0',
             'annee' => 2024,
             'mois' => 6,
             'statut' => 'Payé',
@@ -56,6 +58,7 @@ class ExecutiveDashboardTest extends TestCase
             'libelle' => 'Mandat rejeté',
             'montant' => 50,
             'type' => 'depense',
+            'type_mandat' => '1',
             'annee' => 2024,
             'mois' => 6,
             'statut' => 'Rejeté',
@@ -65,7 +68,7 @@ class ExecutiveDashboardTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('data.indicateurs.mandats_total', 2);
-        $response->assertJsonPath('data.indicateurs.recettes_total', 1000);
+        $response->assertJsonPath('data.indicateurs.recouvrements_4121_total', 1000);
     }
 
     public function test_executive_alertes_lists_region_without_data(): void

@@ -66,10 +66,12 @@ const emit = defineEmits<{ select: [] }>()
   border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 1));
   border-inline-start-width: 3px;
 
+  &--recouvrements,
   &--recettes {
     border-inline-start-color: rgb(var(--v-theme-success));
   }
 
+  &--ordonnance,
   &--depenses {
     border-inline-start-color: rgb(var(--v-theme-error));
   }
@@ -78,8 +80,13 @@ const emit = defineEmits<{ select: [] }>()
     border-inline-start-color: rgb(var(--v-theme-primary));
   }
 
+  &--tresorerie,
   &--encaisse {
     border-inline-start-color: rgb(var(--v-theme-warning));
+  }
+
+  &--paye {
+    border-inline-start-color: rgb(var(--v-theme-info));
   }
 
   &--neutral {

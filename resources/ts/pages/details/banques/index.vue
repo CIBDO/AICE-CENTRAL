@@ -65,16 +65,16 @@ const kpiCards = computed(() => {
   const t = stats.value?.totaux
   if (!t) {
     return [
-      { key: 'debit', label: 'Total débits', value: '—', accent: 'depenses' as const, icon: 'tabler-arrow-down-right' },
-      { key: 'credit', label: 'Total crédits', value: '—', accent: 'recettes' as const, icon: 'tabler-arrow-up-right' },
+      { key: 'debit', label: 'Entrées (débit)', value: '—', accent: 'recettes' as const, icon: 'tabler-arrow-down-left' },
+      { key: 'credit', label: 'Sorties (crédit)', value: '—', accent: 'depenses' as const, icon: 'tabler-arrow-up-right' },
       { key: 'net', label: 'Flux net', value: '—', accent: 'solde' as const, icon: 'tabler-arrows-exchange' },
       { key: 'ops', label: 'Opérations', value: '—', accent: 'neutral' as const, icon: 'tabler-list-numbers' },
     ]
   }
 
   return [
-    { key: 'debit', label: 'Total débits', value: formatFcfa(t.total_debit), accent: 'depenses' as const, icon: 'tabler-arrow-down-right' },
-    { key: 'credit', label: 'Total crédits', value: formatFcfa(t.total_credit), accent: 'recettes' as const, icon: 'tabler-arrow-up-right' },
+    { key: 'debit', label: 'Entrées (débit)', value: formatFcfa(t.total_debit), accent: 'recettes' as const, icon: 'tabler-arrow-down-left' },
+    { key: 'credit', label: 'Sorties (crédit)', value: formatFcfa(t.total_credit), accent: 'depenses' as const, icon: 'tabler-arrow-up-right' },
     { key: 'net', label: 'Flux net', value: formatFcfa(t.flux_net), accent: 'solde' as const, icon: 'tabler-arrows-exchange' },
     { key: 'ops', label: 'Opérations', value: t.count.toLocaleString('fr-FR'), accent: 'neutral' as const, icon: 'tabler-list-numbers' },
   ]
@@ -85,15 +85,15 @@ const fluxChart = computed(() => {
   return {
     labels: rows.map(r => formatDayLabel(r.date)),
     datasets: [
-      { label: 'Crédits', data: rows.map(r => r.credit ?? 0), backgroundColor: '#08A04B' },
-      { label: 'Débits', data: rows.map(r => r.debit ?? 0), backgroundColor: '#E53935' },
+      { label: 'Entrées (débit)', data: rows.map(r => r.debit ?? 0), backgroundColor: '#08A04B' },
+      { label: 'Sorties (crédit)', data: rows.map(r => r.credit ?? 0), backgroundColor: '#E53935' },
     ],
   }
 })
 
 const creditSparkline = computed(() => {
   const rows = stats.value?.par_jour.filter(r => r.date !== 'sans-date') ?? []
-  return { labels: rows.map(r => formatDayLabel(r.date)), data: rows.map(r => (r.credit ?? 0) - (r.debit ?? 0)) }
+  return { labels: rows.map(r => formatDayLabel(r.date)), data: rows.map(r => (r.debit ?? 0) - (r.credit ?? 0)) }
 })
 
 function load() {
@@ -144,12 +144,22 @@ onMounted(async () => {
   load()
 })
 
+function formatBankDebit(value: number | null | undefined) {
+  const amount = Math.abs(Number(value ?? 0))
+  return amount > 0 ? formatFcfa(amount) : null
+}
+
+function formatBankCredit(value: number | null | undefined) {
+  const amount = Math.abs(Number(value ?? 0))
+  return amount > 0 ? formatFcfa(amount) : null
+}
+
 const headers = [
   { title: 'Date', key: 'date_mouvement', width: '110px' },
   { title: 'Compte', key: 'numero_compte', width: '130px' },
   { title: 'Libellé', key: 'libelle' },
-  { title: 'Débit', key: 'debit', align: 'end' as const, width: '120px' },
-  { title: 'Crédit', key: 'credit', align: 'end' as const, width: '120px' },
+  { title: 'Débit (entrée)', key: 'debit', align: 'end' as const, width: '130px' },
+  { title: 'Crédit (sortie)', key: 'credit', align: 'end' as const, width: '130px' },
   { title: 'Solde', key: 'solde', align: 'end' as const, width: '120px' },
 ]
 </script>
@@ -159,7 +169,7 @@ const headers = [
     <ExplorerHero
       icon="tabler-building-bank"
       title="Explorateur trésorerie"
-      subtitle="Mouvements bancaires — flux débits/credits, soldes par compte."
+      subtitle="Mouvements bancaires — convention État : débit = entrée, crédit = sortie."
       :stats="heroStats"
     />
 
@@ -225,6 +235,17 @@ const headers = [
       {{ error }}
     </VAlert>
 
+    <VAlert
+      v-if="stats"
+      type="info"
+      variant="tonal"
+      class="mb-4"
+      density="compact"
+    >
+      <strong>Convention État :</strong> <strong>débit</strong> = entrée d'argent, <strong>crédit</strong> = sortie.
+      Le <strong>flux net</strong> = entrées − sorties. Le <strong>solde</strong> est le solde global NAV du compte.
+    </VAlert>
+
     <VRow class="mb-1">
       <VCol
         v-for="card in kpiCards"
@@ -251,7 +272,7 @@ const headers = [
         lg="7"
       >
         <DataPanel
-          title="Flux débits / crédits"
+          title="Entrées (débit) / Sorties (crédit)"
           :subtitle="periodLabel"
         >
           <ChartWidget
@@ -305,8 +326,22 @@ const headers = [
                   {{ compte.libelle }}
                 </div>
                 <div class="aice-compte-card__row">
-                  <span class="text-success">+{{ formatFcfa(compte.credit) }}</span>
-                  <span class="text-error">−{{ formatFcfa(compte.debit) }}</span>
+                  <span
+                    v-if="compte.debit > 0"
+                    class="text-success"
+                  >+{{ formatFcfa(compte.debit) }}</span>
+                  <span
+                    v-else
+                    class="text-medium-emphasis"
+                  >—</span>
+                  <span
+                    v-if="compte.credit > 0"
+                    class="text-error"
+                  >−{{ formatFcfa(compte.credit) }}</span>
+                  <span
+                    v-else
+                    class="text-medium-emphasis"
+                  >—</span>
                 </div>
                 <div class="aice-compte-card__solde tabular-nums">
                   Solde {{ formatFcfa(compte.solde) }}
@@ -342,10 +377,10 @@ const headers = [
           <span class="tabular-nums">{{ formatDateOnly(item.date_mouvement) }}</span>
         </template>
         <template #item.debit="{ item }">
-          <span class="tabular-nums text-error">{{ item.debit ? formatFcfa(item.debit) : '—' }}</span>
+          <span class="tabular-nums text-success">{{ formatBankDebit(item.debit) ?? '—' }}</span>
         </template>
         <template #item.credit="{ item }">
-          <span class="tabular-nums text-success">{{ item.credit ? formatFcfa(item.credit) : '—' }}</span>
+          <span class="tabular-nums text-error">{{ formatBankCredit(item.credit) ?? '—' }}</span>
         </template>
         <template #item.solde="{ item }">
           <span class="tabular-nums font-weight-medium">{{ formatFcfa(item.solde) }}</span>

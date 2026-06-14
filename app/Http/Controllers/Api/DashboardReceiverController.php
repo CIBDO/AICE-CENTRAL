@@ -67,7 +67,12 @@ class DashboardReceiverController extends Controller
             'mouvements_count' => is_array($request->input('mouvements')) ? count($request->input('mouvements')) : null,
         ]);
 
-        $request->merge(DashboardKpis::normalizeIncomingPayload($request->all()));
+        $payload = $request->all();
+        $payload = array_merge($payload, DashboardKpis::normalizeIncomingPayload($payload));
+        if (!empty($payload['recettes_clients']) && is_array($payload['recettes_clients'])) {
+            $payload['recettes_clients'] = DashboardKpis::normalizeRecettesClients($payload['recettes_clients']);
+        }
+        $request->merge($payload);
 
         // Validation des données
         $validator = Validator::make($request->all(), [

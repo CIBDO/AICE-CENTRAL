@@ -2,7 +2,16 @@
 import type { KpiAccent } from '@/types/dashboard'
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import AlertList from '@/components/aice/AlertList.vue'
-import { endOfMonth, formatDateFr, formatDateRange, formatFcfa, formatPercent, startOfMonth } from '@/composables/useFormat'
+import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
+import {
+  endOfMonth,
+  formatDateFr,
+  formatDateRange,
+  formatEvolutionPct,
+  formatFcfa,
+  formatPercent,
+  startOfMonth,
+} from '@/composables/useFormat'
 import { useExecutiveDashboard } from '@/composables/useExecutiveDashboard'
 
 definePage({ meta: { layout: 'default' } })
@@ -16,20 +25,28 @@ const periodLabel = computed(() => formatDateRange(dateDebut.value, dateFin.valu
 const lastUpdate = computed(() => formatDateFr(kpis.value?.meta.derniere_mise_a_jour))
 const hasData = computed(() => (kpis.value?.meta.regions_avec_donnees ?? 0) > 0)
 
+const quickLinks = [
+  { title: 'Vue centrale', hint: 'Toutes les régions', icon: 'tabler-chart-dots-3', to: { name: 'dashboards-central' } },
+  { title: 'Vue régionale', hint: 'Détail par région', icon: 'tabler-chart-bar', to: { name: 'dashboards-regional' } },
+  { title: 'Mandats', hint: 'Explorateur', icon: 'tabler-file-invoice', to: { name: 'details-mandats' } },
+  { title: 'Recettes', hint: 'Encaissements 4121', icon: 'tabler-cash', to: { name: 'details-recettes' } },
+]
+
 const heroStats = computed(() => {
   const ind = kpis.value?.indicateurs
-  if (!ind) {
+  const meta = kpis.value?.meta
+  if (!ind || !meta) {
     return [
-      { label: 'Exécution', value: '—' },
-      { label: 'Alertes', value: '—' },
+      { label: 'Régions', value: '—' },
+      { label: 'Mandats', value: '—' },
       { label: 'Période', value: periodLabel.value },
     ]
   }
 
   return [
-    { label: 'Exécution', value: formatPercent(ind.taux_execution) },
-    { label: 'Alertes', value: String(alertes.value.length) },
-    { label: 'Période', value: periodLabel.value },
+    { label: 'Régions actives', value: `${meta.regions_avec_donnees} / ${meta.regions_actives}` },
+    { label: 'Mandats', value: ind.mandats_total.toLocaleString('fr-FR') },
+    { label: 'Ordonnancé', value: formatFcfa(ind.ordonnance_total) },
   ]
 })
 
@@ -37,18 +54,69 @@ const strategicKpis = computed(() => {
   const ind = kpis.value?.indicateurs
   if (!ind) {
     return [
-      { label: 'Taux d\'exécution', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-percentage' },
-      { label: 'Taux de rejet', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-alert-triangle' },
-      { label: 'Trésorerie nationale', value: '—', accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
-      { label: 'Mandats en attente', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
+      { key: 'exec', label: 'Taux d\'exécution', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-percentage' },
+      { key: 'rejet', label: 'Taux de rejet', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-alert-triangle' },
+      { key: 'mandats', label: 'Mandats traités', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-file-invoice' },
+      { key: 'attente', label: 'Mandats admis', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
     ]
   }
 
   return [
-    { label: 'Taux d\'exécution', value: formatPercent(ind.taux_execution), accent: 'solde' as KpiAccent, icon: 'tabler-percentage' },
-    { label: 'Taux de rejet', value: formatPercent(ind.taux_rejet), accent: 'depenses' as KpiAccent, icon: 'tabler-alert-triangle' },
-    { label: 'Trésorerie nationale', value: formatFcfa(ind.tresorerie_reelle_total), accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
-    { label: 'Mandats en attente', value: ind.mandats_admis.toLocaleString('fr-FR'), accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
+    { key: 'exec', label: 'Taux d\'exécution', value: formatPercent(ind.taux_execution), accent: 'solde' as KpiAccent, icon: 'tabler-percentage' },
+    { key: 'rejet', label: 'Taux de rejet', value: formatPercent(ind.taux_rejet), accent: 'depenses' as KpiAccent, icon: 'tabler-alert-triangle' },
+    { key: 'mandats', label: 'Mandats traités', value: ind.mandats_total.toLocaleString('fr-FR'), accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
+    { key: 'attente', label: 'Mandats admis', value: ind.mandats_admis.toLocaleString('fr-FR'), accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
+  ]
+})
+
+const financialKpis = computed(() => {
+  const ind = kpis.value?.indicateurs
+  if (!ind) {
+    return [
+      { key: 'ord', label: 'Ordonnancé national', value: '—', accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
+      { key: 'rec', label: 'Recouvrements (4121)', value: '—', accent: 'recouvrements' as KpiAccent, icon: 'tabler-receipt' },
+      { key: 'paye', label: 'Payé + Réglé', value: '—', accent: 'paye' as KpiAccent, icon: 'tabler-circle-check' },
+      { key: 'treso', label: 'Solde bancaire NAV', value: '—', accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
+      { key: 'ecart', label: 'Écart (4121 − ord.)', value: '—', accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
+    ]
+  }
+
+  return [
+    { key: 'ord', label: 'Ordonnancé national', value: formatFcfa(ind.ordonnance_total), accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
+    { key: 'rec', label: 'Recouvrements (4121)', value: formatFcfa(ind.recouvrements_4121_total), accent: 'recouvrements' as KpiAccent, icon: 'tabler-receipt' },
+    { key: 'paye', label: 'Payé + Réglé', value: formatFcfa(ind.montant_paye_total), accent: 'paye' as KpiAccent, icon: 'tabler-circle-check' },
+    { key: 'treso', label: 'Solde bancaire NAV', value: formatFcfa(ind.tresorerie_reelle_total), accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
+    { key: 'ecart', label: 'Écart (4121 − ord.)', value: formatFcfa(ind.solde_total), accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
+  ]
+})
+
+const comparaisonRows = computed(() => {
+  const cmp = kpis.value?.comparaison_mois_precedent
+  const ind = kpis.value?.indicateurs
+  if (!cmp || !ind)
+    return []
+
+  return [
+    {
+      label: 'Ordonnancé',
+      valeur: formatFcfa(ind.ordonnance_total),
+      evolution: cmp.ordonnance_evolution_pct,
+    },
+    {
+      label: 'Recouvrements 4121',
+      valeur: formatFcfa(ind.recouvrements_4121_total),
+      evolution: cmp.recouvrements_evolution_pct,
+    },
+    {
+      label: 'Volume mandats',
+      valeur: ind.mandats_total.toLocaleString('fr-FR'),
+      evolution: cmp.mandats_evolution_pct,
+    },
+    {
+      label: 'Mandats rejetés',
+      valeur: ind.mandats_rejetes.toLocaleString('fr-FR'),
+      evolution: null,
+    },
   ]
 })
 
@@ -60,11 +128,41 @@ const performanceChart = computed(() => {
   }
 })
 
+const performanceRegions = computed(() => kpis.value?.performance_regions ?? [])
+
 const alertesResume = computed(() => ({
   total: alertes.value.length,
   critiques: alertes.value.filter(a => a.priorite === 'critique').length,
   warnings: alertes.value.filter(a => a.priorite === 'warning').length,
 }))
+
+const tendanceIcon = computed(() => {
+  const type = predictions.value?.tendance_depenses.type
+  if (type === 'hausse')
+    return 'tabler-trending-up'
+  if (type === 'baisse')
+    return 'tabler-trending-down'
+  return 'tabler-minus'
+})
+
+const tendanceColor = computed(() => {
+  const type = predictions.value?.tendance_depenses.type
+  if (type === 'hausse')
+    return 'text-error'
+  if (type === 'baisse')
+    return 'text-success'
+  return 'text-medium-emphasis'
+})
+
+function evolutionClass(value: number | null | undefined) {
+  if (value === null || value === undefined)
+    return ''
+  if (value > 0)
+    return 'text-error'
+  if (value < 0)
+    return 'text-success'
+  return 'text-medium-emphasis'
+}
 
 async function loadDashboard() {
   if (dateDebut.value && dateFin.value && dateDebut.value > dateFin.value)
@@ -86,7 +184,7 @@ onMounted(() => loadDashboard())
     <ExplorerHero
       icon="tabler-chart-line"
       title="Tableau de bord exécutif"
-      subtitle="Indicateurs stratégiques, alertes et synthèse nationale."
+      :subtitle="`Synthèse nationale · ${periodLabel}`"
       class="aice-dashboard-hero"
       :stats="heroStats"
     >
@@ -95,10 +193,15 @@ onMounted(() => loadDashboard())
           v-if="kpis?.meta.derniere_mise_a_jour"
           class="aice-dashboard-hero__meta"
         >
-          MAJ {{ lastUpdate }}
+          {{ kpis.meta.regions_avec_donnees }} région(s) avec données
+          <template v-if="lastUpdate">
+            · MAJ {{ lastUpdate }}
+          </template>
         </div>
       </template>
     </ExplorerHero>
+
+    <QuickLinkGrid :links="quickLinks" />
 
     <div class="aice-sticky-toolbar">
       <div class="d-flex flex-wrap align-center gap-3">
@@ -151,153 +254,351 @@ onMounted(() => loadDashboard())
       class="mb-4"
       density="compact"
     >
-      Aucune donnée nationale entre le {{ periodLabel }}.
-      Élargissez la plage de dates si les données proviennent d'une autre période.
+      Aucune donnée nationale pour {{ periodLabel }}.
+      Élargissez la plage ou vérifiez les pushs régionaux (AICE-API).
     </VAlert>
 
-    <VRow v-if="loading">
-      <VCol
-        v-for="i in 4"
-        :key="i"
-        cols="12"
-        sm="6"
-        lg="3"
-      >
-        <VSkeletonLoader type="card" />
-      </VCol>
-    </VRow>
-
-    <VRow v-else>
-      <VCol
-        v-for="kpi in strategicKpis"
-        :key="kpi.label"
-        cols="12"
-        sm="6"
-        lg="3"
-      >
-        <KpiStat
-          :label="kpi.label"
-          :value="kpi.value"
-          :accent="kpi.accent"
-          :icon="kpi.icon"
-        />
-      </VCol>
-    </VRow>
-
-    <VRow
-      v-if="!loading && kpis"
-      class="mt-1"
-    >
-      <VCol
-        cols="12"
-        md="4"
-      >
-        <DataPanel
-          title="Alertes actives"
-          :subtitle="`${alertesResume.critiques} critique(s) · ${alertesResume.warnings} vigilance · ${alertesResume.total} total`"
+    <template v-if="loading">
+      <VRow>
+        <VCol
+          v-for="i in 8"
+          :key="i"
+          cols="12"
+          sm="6"
+          lg="3"
         >
-          <AlertList
-            :alertes="alertes"
-            :loading="loading"
+          <VSkeletonLoader type="card" />
+        </VCol>
+      </VRow>
+    </template>
+
+    <template v-else-if="kpis">
+      <p class="aice-section-label mb-2">
+        Pilotage mandats
+      </p>
+      <VRow class="mb-1">
+        <VCol
+          v-for="kpi in strategicKpis"
+          :key="kpi.key"
+          cols="12"
+          sm="6"
+          lg="3"
+        >
+          <KpiStat
+            :label="kpi.label"
+            :value="kpi.value"
+            :accent="kpi.accent"
+            :icon="kpi.icon"
           />
-        </DataPanel>
-      </VCol>
+        </VCol>
+      </VRow>
 
-      <VCol
-        cols="12"
-        md="4"
-      >
-        <DataPanel
-          title="Tendance & projection"
-          :subtitle="periodLabel"
+      <p class="aice-section-label mb-2">
+        Agrégats financiers nationaux
+      </p>
+      <VRow class="mb-1">
+        <VCol
+          v-for="kpi in financialKpis"
+          :key="kpi.key"
+          cols="12"
+          sm="6"
+          md="4"
+          lg="4"
         >
-          <div
-            v-if="predictions"
-            class="aice-trend-block"
-          >
-            <p class="aice-trend-block__label">
-              Tendance des dépenses
-            </p>
-            <p class="aice-trend-block__value">
-              {{ predictions.tendance_depenses.description }}
-            </p>
-            <p
-              v-if="predictions.tendance_depenses.evolution_pct !== null"
-              class="aice-trend-block__evolution"
-            >
-              {{ predictions.tendance_depenses.evolution_pct > 0 ? '+' : '' }}{{ predictions.tendance_depenses.evolution_pct }} % vs période précédente
-            </p>
+          <KpiStat
+            :label="kpi.label"
+            :value="kpi.value"
+            :accent="kpi.accent"
+            :icon="kpi.icon"
+          />
+        </VCol>
+      </VRow>
 
-            <VDivider class="my-4" />
-
-            <p class="aice-trend-block__label">
-              Projection fin de période
-            </p>
-            <p class="aice-trend-block__amount tabular-nums">
-              {{ formatFcfa(predictions.projection_depenses_fin_mois) }}
-            </p>
-            <p class="aice-trend-block__hint">
-              Réalisé à ce jour : {{ formatFcfa(predictions.depenses_mois_courant) }}
-            </p>
-          </div>
-        </DataPanel>
-      </VCol>
-
-      <VCol
-        cols="12"
-        md="4"
-      >
-        <DataPanel
-          title="Anomalies détectées"
-          subtitle="Écarts par région"
+      <VRow class="mt-1">
+        <VCol
+          cols="12"
+          md="4"
         >
-          <div
-            v-if="!anomalies.length"
-            class="aice-panel-empty"
+          <DataPanel
+            title="Alertes actives"
+            :subtitle="`${alertesResume.critiques} critique(s) · ${alertesResume.warnings} vigilance`"
           >
-            Aucune anomalie significative pour cette période.
-          </div>
-          <div
-            v-else
-            class="aice-anomaly-list"
+            <AlertList
+              :alertes="alertes"
+              :loading="loading"
+            />
+          </DataPanel>
+        </VCol>
+
+        <VCol
+          cols="12"
+          md="4"
+        >
+          <DataPanel
+            title="Évolution vs période précédente"
+            :subtitle="periodLabel"
           >
             <div
-              v-for="(item, index) in anomalies"
-              :key="`${item.region_code}-${item.type}-${index}`"
-              class="aice-anomaly-item"
+              v-if="!comparaisonRows.length"
+              class="aice-panel-empty"
             >
-              <span class="aice-anomaly-item__region">{{ item.region_code }}</span>
-              <p class="aice-anomaly-item__text">
-                {{ item.description }}
+              Données insuffisantes pour comparer.
+            </div>
+            <div
+              v-else
+              class="aice-compare-list"
+            >
+              <div
+                v-for="row in comparaisonRows"
+                :key="row.label"
+                class="aice-compare-item"
+              >
+                <div class="aice-compare-item__head">
+                  <span class="aice-compare-item__label">{{ row.label }}</span>
+                  <span
+                    v-if="row.evolution !== null"
+                    class="aice-compare-item__evo tabular-nums"
+                    :class="evolutionClass(row.evolution)"
+                  >
+                    {{ formatEvolutionPct(row.evolution) }}
+                  </span>
+                </div>
+                <p class="aice-compare-item__value tabular-nums">
+                  {{ row.valeur }}
+                </p>
+              </div>
+            </div>
+          </DataPanel>
+        </VCol>
+
+        <VCol
+          cols="12"
+          md="4"
+        >
+          <DataPanel
+            title="Tendance & projection"
+            :subtitle="periodLabel"
+          >
+            <div
+              v-if="predictions"
+              class="aice-trend-block"
+            >
+              <div class="d-flex align-center gap-2 mb-2">
+                <VIcon
+                  :icon="tendanceIcon"
+                  size="20"
+                  :class="tendanceColor"
+                />
+                <p class="aice-trend-block__value mb-0">
+                  {{ predictions.tendance_depenses.description }}
+                </p>
+              </div>
+              <p
+                v-if="predictions.tendance_depenses.evolution_pct !== null"
+                class="aice-trend-block__evolution tabular-nums"
+                :class="evolutionClass(predictions.tendance_depenses.evolution_pct)"
+              >
+                Ordonnancé : {{ formatEvolutionPct(predictions.tendance_depenses.evolution_pct) }} vs période précédente
+              </p>
+
+              <VDivider class="my-4" />
+
+              <p class="aice-trend-block__label">
+                Projection ordonnancé (fin de période)
+              </p>
+              <p class="aice-trend-block__amount tabular-nums">
+                {{ formatFcfa(predictions.projection_depenses_fin_mois) }}
+              </p>
+              <p class="aice-trend-block__hint">
+                Réalisé à ce jour : {{ formatFcfa(predictions.depenses_mois_courant) }}
               </p>
             </div>
-          </div>
-        </DataPanel>
-      </VCol>
-    </VRow>
+          </DataPanel>
+        </VCol>
+      </VRow>
 
-    <VRow
-      v-if="!loading && performanceChart.labels.length"
-      class="mt-1"
-    >
-      <VCol cols="12">
-        <DataPanel
-          title="Performance régionale"
-          subtitle="Score composite (exécution − impact rejets)"
+      <VRow class="mt-1">
+        <VCol
+          cols="12"
+          lg="7"
         >
-          <ChartWidget
-            type="bar"
-            :labels="performanceChart.labels"
-            :datasets="performanceChart.datasets"
-            :height="280"
-          />
-        </DataPanel>
-      </VCol>
-    </VRow>
+          <DataPanel
+            title="Performance par région"
+            subtitle="Classement par score composite"
+          >
+            <VTable
+              v-if="performanceRegions.length"
+              density="compact"
+              class="aice-perf-table"
+            >
+              <thead>
+                <tr>
+                  <th>Région</th>
+                  <th class="text-end">
+                    Mandats
+                  </th>
+                  <th class="text-end">
+                    Exécution
+                  </th>
+                  <th class="text-end">
+                    Rejet
+                  </th>
+                  <th class="text-end">
+                    Score
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="row in performanceRegions"
+                  :key="row.region.code"
+                >
+                  <td>
+                    <span class="font-weight-medium">{{ row.region.code }}</span>
+                    <span class="text-medium-emphasis text-caption ms-1">{{ row.region.nom }}</span>
+                  </td>
+                  <td class="text-end tabular-nums">
+                    {{ row.mandats_total.toLocaleString('fr-FR') }}
+                  </td>
+                  <td class="text-end tabular-nums">
+                    {{ formatPercent(row.taux_execution) }}
+                  </td>
+                  <td class="text-end tabular-nums text-error">
+                    {{ formatPercent(row.taux_rejet) }}
+                  </td>
+                  <td class="text-end tabular-nums font-weight-medium">
+                    {{ row.score }}
+                  </td>
+                </tr>
+              </tbody>
+            </VTable>
+            <div
+              v-else
+              class="aice-panel-empty"
+            >
+              Aucune région avec données mandats sur cette période.
+            </div>
+          </DataPanel>
+        </VCol>
+
+        <VCol
+          cols="12"
+          lg="5"
+        >
+          <DataPanel
+            title="Anomalies régionales"
+            subtitle="Écarts par rapport à la moyenne nationale"
+          >
+            <div
+              v-if="!anomalies.length"
+              class="aice-panel-empty"
+            >
+              Aucune anomalie significative détectée.
+            </div>
+            <div
+              v-else
+              class="aice-anomaly-list"
+            >
+              <div
+                v-for="(item, index) in anomalies"
+                :key="`${item.region_code}-${item.type}-${index}`"
+                class="aice-anomaly-item"
+              >
+                <div class="d-flex align-center gap-2 mb-1">
+                  <span class="aice-anomaly-item__region">{{ item.region_code }}</span>
+                  <VChip
+                    size="x-small"
+                    :color="item.severite === 'elevee' ? 'error' : 'warning'"
+                    variant="tonal"
+                  >
+                    {{ item.severite === 'elevee' ? 'Élevée' : 'Modérée' }}
+                  </VChip>
+                </div>
+                <p class="aice-anomaly-item__text">
+                  {{ item.description }}
+                </p>
+                <p class="aice-anomaly-item__value tabular-nums">
+                  {{ formatPercent(item.valeur) }}
+                </p>
+              </div>
+            </div>
+          </DataPanel>
+        </VCol>
+      </VRow>
+
+      <VRow
+        v-if="performanceChart.labels.length"
+        class="mt-1"
+      >
+        <VCol cols="12">
+          <DataPanel
+            title="Score de performance régionale"
+            subtitle="Exécution − impact des rejets (0–100)"
+          >
+            <ChartWidget
+              type="bar"
+              :labels="performanceChart.labels"
+              :datasets="performanceChart.datasets"
+              :height="280"
+            />
+          </DataPanel>
+        </VCol>
+      </VRow>
+    </template>
   </div>
 </template>
 
 <style scoped lang="scss">
+.aice-section-label {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.aice-compare-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.aice-compare-item {
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-block-end: 0.2rem;
+  }
+
+  &__label {
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__evo {
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  &__value {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+}
+
+.aice-perf-table {
+  :deep(thead th) {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+}
+
 .aice-trend-block {
   &__label {
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
@@ -310,11 +611,9 @@ onMounted(() => loadDashboard())
 
   &__value {
     font-size: 0.875rem;
-    margin-block: 0 0.35rem;
   }
 
   &__evolution {
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
     font-size: 0.8125rem;
     margin: 0;
   }
@@ -357,7 +656,13 @@ onMounted(() => loadDashboard())
 
   &__text {
     font-size: 0.8125rem;
-    margin-block: 0.25rem 0;
+    margin-block: 0.15rem;
+  }
+
+  &__value {
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    font-size: 0.75rem;
+    margin: 0;
   }
 }
 

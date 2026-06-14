@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BanquePush;
+use App\Support\BankMovementAmounts;
 use App\Support\DetailQueryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -32,7 +33,7 @@ class BanqueQueryService
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return Collection<int, BanquePush>
+     * @return Collection<int, array<string, mixed>>
      */
     public function exportRows(array $filters): Collection
     {
@@ -56,23 +57,23 @@ class BanqueQueryService
                 'comptes_uniques' => $rows->pluck('numero_compte')->unique()->count(),
                 'total_debit' => $totalDebit,
                 'total_credit' => $totalCredit,
-                'flux_net' => $totalCredit - $totalDebit,
+                'flux_net' => $totalDebit - $totalCredit,
             ],
             'par_compte' => $rows
                 ->groupBy('numero_compte')
                 ->map(fn (Collection $group, string $compte) => [
                     'numero_compte' => $compte,
-                    'libelle' => $group->first()->libelle,
+                    'libelle' => $group->first()['libelle'] ?? '',
                     'count' => $group->count(),
                     'debit' => (float) $group->sum('debit'),
                     'credit' => (float) $group->sum('credit'),
-                    'solde' => (float) $this->latestRow($group)->solde,
+                    'solde' => (float) ($group->sortByDesc('date_mouvement')->sortByDesc('id')->first()['solde'] ?? 0),
                 ])
-                ->sortByDesc('credit')
+                ->sortByDesc('debit')
                 ->values()
                 ->all(),
             'par_jour' => $rows
-                ->groupBy(fn (BanquePush $b) => $b->date_mouvement?->format('Y-m-d') ?? 'sans-date')
+                ->groupBy(fn (array $row) => $row['date_mouvement'] ?? 'sans-date')
                 ->map(fn (Collection $group, string $date) => [
                     'date' => $date,
                     'debit' => (float) $group->sum('debit'),
@@ -86,27 +87,36 @@ class BanqueQueryService
     }
 
     /**
-     * Écritures ledger banque (1 ligne NAV = 1 entry_no), dédupliquées entre pushs.
-     *
      * @param  array<string, mixed>  $filters
-     * @return Collection<int, BanquePush>
+     * @return Collection<int, array<string, mixed>>
      */
     private function collectRows(array $filters): Collection
     {
+        [, , $dashboardIds] = DetailQueryFilters::resolveContext($filters);
+
+        $hasLineLevel = BanquePush::query()
+            ->whereIn('dashboard_id', $dashboardIds)
+            ->where('regional_id', 'like', 'BANQUE-ENTRY-%')
+            ->exists();
+
         return $this->dedupeBanques(
-            $this->baseQuery($filters)
+            $this->baseQuery($filters, $hasLineLevel)
                 ->orderByDesc('date_mouvement')
                 ->orderByDesc('id')
                 ->get()
-        );
+        )->map(fn (BanquePush $b) => $this->toBanqueRow($b))->values();
     }
 
     /** @param  array<string, mixed>  $filters */
-    private function baseQuery(array $filters): Builder
+    private function baseQuery(array $filters, bool $lineLevelOnly): Builder
     {
         [, , $dashboardIds] = DetailQueryFilters::resolveContext($filters);
 
         $query = BanquePush::query()->whereIn('dashboard_id', $dashboardIds);
+
+        if ($lineLevelOnly) {
+            $query->where('regional_id', 'like', 'BANQUE-ENTRY-%');
+        }
 
         DetailQueryFilters::applyDateRange($query, $filters, 'date_mouvement', supportsAnneeMois: true);
 
@@ -133,12 +143,27 @@ class BanqueQueryService
             ->values();
     }
 
-    /** @param  Collection<int, BanquePush>  $group */
-    private function latestRow(Collection $group): BanquePush
+    /** @return array<string, mixed> */
+    private function toBanqueRow(BanquePush $b): array
     {
-        return $group
-            ->sortByDesc(fn (BanquePush $b) => $b->date_mouvement?->format('Y-m-d') ?? '')
-            ->sortByDesc('id')
-            ->first();
+        [$debit, $credit] = BankMovementAmounts::toStateConvention(
+            (float) $b->debit,
+            (float) $b->credit,
+        );
+
+        return [
+            'id' => $b->id,
+            'numero_compte' => $b->numero_compte,
+            'libelle' => $b->libelle,
+            'date_mouvement' => $b->date_mouvement?->format('Y-m-d'),
+            'debit' => $debit,
+            'credit' => $credit,
+            'solde' => (float) $b->solde,
+            'reference' => $b->reference,
+            'entry_no' => $b->entry_no,
+            'type_document' => $b->type_document,
+            'description' => $b->description,
+            'flux' => $debit - $credit,
+        ];
     }
 }

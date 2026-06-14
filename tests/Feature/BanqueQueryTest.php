@@ -63,8 +63,9 @@ class BanqueQueryTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('stats.totaux.count', 2);
-        $response->assertJsonPath('stats.totaux.total_debit', 1000);
-        $response->assertJsonPath('stats.totaux.total_credit', 2500);
+        // Convention État : débit NAV sortie → crédit État ; crédit NAV entrée → débit État
+        $response->assertJsonPath('stats.totaux.total_debit', 2500);
+        $response->assertJsonPath('stats.totaux.total_credit', 1000);
         $response->assertJsonPath('stats.totaux.flux_net', 1500);
         $response->assertJsonPath('meta.total', 2);
     }
@@ -125,6 +126,66 @@ class BanqueQueryTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('stats.totaux.count', 1);
-        $response->assertJsonPath('stats.totaux.total_credit', 800);
+        $response->assertJsonPath('stats.totaux.total_debit', 800);
+    }
+
+    public function test_banques_apply_state_convention_for_negative_nav_debit(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $region = Region::create([
+            'code' => 'SAN',
+            'nom' => 'Sangha',
+            'actif' => true,
+            'token' => 't1',
+            'source_type' => 'api',
+            'ordre' => 1,
+        ]);
+
+        $dashboard = Dashboard::create([
+            'region_id' => $region->id,
+            'local_id' => 'SAN',
+            'regional_id' => 'D1',
+            'total_ordonnance' => 0,
+            'total_recouvrements_4121' => 0,
+            'total_montant_paye' => 0,
+            'solde' => 0,
+            'tresorerie_reelle' => 0,
+            'annee' => 2024,
+            'mois' => 1,
+        ]);
+
+        BanquePush::create([
+            'dashboard_id' => $dashboard->id,
+            'regional_id' => 'BANQUE-ENTRY-2024-recu',
+            'numero_compte' => 'RECU',
+            'libelle' => 'Banque Reçu de versement',
+            'date_mouvement' => '2024-08-31',
+            'debit' => -6_517_990,
+            'credit' => 0,
+            'solde' => 0,
+            'entry_no' => '7001',
+            'exercice' => 2024,
+        ]);
+
+        BanquePush::create([
+            'dashboard_id' => $dashboard->id,
+            'regional_id' => 'BANQUE-ENTRY-2024-dep',
+            'numero_compte' => 'SAN-BDM-DEP',
+            'libelle' => 'BDM DEPENSES',
+            'date_mouvement' => '2024-10-18',
+            'debit' => 0,
+            'credit' => 291_268,
+            'solde' => 110_914_885,
+            'entry_no' => '7002',
+            'exercice' => 2024,
+        ]);
+
+        $response = $this->getJson('/api/v1/banques?region_code=SAN&date_debut=2024-01-01&date_fin=2024-12-31');
+
+        $response->assertOk();
+        $response->assertJsonPath('stats.totaux.total_debit', 291268);
+        $response->assertJsonPath('stats.totaux.total_credit', 6517990);
+        $response->assertJsonPath('stats.totaux.flux_net', 291268 - 6517990);
     }
 }

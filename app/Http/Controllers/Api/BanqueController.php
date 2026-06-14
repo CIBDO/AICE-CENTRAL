@@ -38,16 +38,16 @@ class BanqueController extends Controller
 
         return CsvExporter::download(
             'banques.csv',
-            ['Date', 'Compte', 'Libellé', 'Référence', 'Type', 'Débit', 'Crédit', 'Solde'],
-            $rows->map(fn ($b) => [
-                $b->date_mouvement?->format('d/m/Y') ?? '',
-                $b->numero_compte ?? '',
-                $b->libelle ?? '',
-                $b->reference ?? '',
-                $b->type_document ?? '',
-                number_format((float) $b->debit, 0, ',', ' '),
-                number_format((float) $b->credit, 0, ',', ' '),
-                number_format((float) $b->solde, 0, ',', ' '),
+            ['Date', 'Compte', 'Libellé', 'Référence', 'Type', 'Débit (entrée)', 'Crédit (sortie)', 'Solde'],
+            $rows->map(fn (array $b) => [
+                isset($b['date_mouvement']) ? date('d/m/Y', strtotime((string) $b['date_mouvement'])) : '',
+                $b['numero_compte'] ?? '',
+                $b['libelle'] ?? '',
+                $b['reference'] ?? '',
+                $b['type_document'] ?? '',
+                number_format((float) ($b['debit'] ?? 0), 0, ',', ' '),
+                number_format((float) ($b['credit'] ?? 0), 0, ',', ' '),
+                number_format((float) ($b['solde'] ?? 0), 0, ',', ' '),
             ]),
         );
     }

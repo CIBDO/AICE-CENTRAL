@@ -77,4 +77,31 @@ final class DashboardKpis
             'solde' => $solde,
         ];
     }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $recettes
+     * @return array<int, array<string, mixed>>
+     */
+    public static function normalizeRecettesClients(array $recettes): array
+    {
+        return array_values(array_map(function (array $recette) {
+            $entryNo = trim((string) ($recette['source_no'] ?? ''));
+            $clientNo = trim((string) ($recette['client_no'] ?? ''));
+            if ($clientNo === '' || strtoupper($clientNo) === 'UNKNOWN') {
+                $clientNo = $entryNo !== '' ? 'NR-' . $entryNo : 'NON-RENSEIGNE';
+            }
+
+            $clientName = trim((string) ($recette['client_name'] ?? $recette['nom_client'] ?? ''));
+            if ($clientName === '') {
+                $libelle = trim((string) ($recette['description'] ?? ''));
+                $clientName = $libelle !== '' ? $libelle : "Client {$clientNo}";
+            }
+
+            $recette['client_no'] = $clientNo;
+            $recette['client_name'] = $clientName;
+            $recette['nom_client'] = $clientName;
+
+            return $recette;
+        }, $recettes));
+    }
 }

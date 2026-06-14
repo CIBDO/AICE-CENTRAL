@@ -56,6 +56,7 @@ declare global {
   const formatDateRange: typeof import('./resources/ts/composables/useFormat')['formatDateRange']
   const formatDateToMonthShort: typeof import('./resources/ts/@core/utils/formatters')['formatDateToMonthShort']
   const formatDayLabel: typeof import('./resources/ts/composables/useFormat')['formatDayLabel']
+  const formatEvolutionPct: typeof import('./resources/ts/composables/useFormat')['formatEvolutionPct']
   const formatFcfa: typeof import('./resources/ts/composables/useFormat')['formatFcfa']
   const formatMonthYear: typeof import('./resources/ts/composables/useFormat')['formatMonthYear']
   const formatPercent: typeof import('./resources/ts/composables/useFormat')['formatPercent']
@@ -450,6 +451,7 @@ declare module 'vue' {
     readonly formatDateRange: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatDateRange']>
     readonly formatDateToMonthShort: UnwrapRef<typeof import('./resources/ts/@core/utils/formatters')['formatDateToMonthShort']>
     readonly formatDayLabel: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatDayLabel']>
+    readonly formatEvolutionPct: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatEvolutionPct']>
     readonly formatFcfa: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatFcfa']>
     readonly formatMonthYear: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatMonthYear']>
     readonly formatPercent: UnwrapRef<typeof import('./resources/ts/composables/useFormat')['formatPercent']>

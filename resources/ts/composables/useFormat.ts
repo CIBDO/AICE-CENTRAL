@@ -89,3 +89,10 @@ export function endOfMonth(date = new Date()): string {
 export function formatPercent(value: number): string {
   return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(value)} %`
 }
+
+export function formatEvolutionPct(value: number | null | undefined): string {
+  if (value === null || value === undefined)
+    return '—'
+
+  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1, signDisplay: 'exceptZero' }).format(value)} %`
+}

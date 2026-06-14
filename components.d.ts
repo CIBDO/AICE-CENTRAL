@@ -377,6 +377,7 @@ declare module 'vue' {
     FilterChipBar: typeof import('./resources/ts/components/aice/FilterChipBar.vue')['default']
     I18n: typeof import('./resources/ts/@core/components/I18n.vue')['default']
     KpiStat: typeof import('./resources/ts/components/aice/KpiStat.vue')['default']
+    LoginShowcase: typeof import('./resources/ts/components/aice/LoginShowcase.vue')['default']
     MandatsTypeTable: typeof import('./resources/ts/components/aice/MandatsTypeTable.vue')['default']
     MoreBtn: typeof import('./resources/ts/@core/components/MoreBtn.vue')['default']
     Notifications: typeof import('./resources/ts/@core/components/Notifications.vue')['default']

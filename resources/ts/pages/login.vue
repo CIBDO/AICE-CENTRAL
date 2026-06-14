@@ -93,68 +93,149 @@ const onSubmit = () => {
           alt="DGTCP"
           class="aice-login__logo"
         >
+        <p class="aice-login__eyebrow">
+          République du Mali
+        </p>
         <p class="aice-login__org">
           Direction Générale du Trésor et de la Comptabilité Publique
         </p>
       </div>
 
-      <VCard
-        flat
-        class="aice-login__card"
-      >
-        <VCardText class="pb-2">
+      <div class="aice-login__case">
+        <div
+          class="aice-login__roof"
+          aria-hidden="true"
+        >
+          <svg
+            class="aice-login__roof-svg"
+            viewBox="0 0 360 40"
+            xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient
+                id="aice-login-roof"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop
+                  offset="0%"
+                  stop-color="#067A39"
+                />
+                <stop
+                  offset="100%"
+                  stop-color="#08A04B"
+                />
+              </linearGradient>
+            </defs>
+            <polygon
+              points="180,0 352,38 8,38"
+              fill="url(#aice-login-roof)"
+            />
+            <line
+              x1="180"
+              y1="0"
+              x2="180"
+              y2="6"
+              stroke="#E7C936"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <rect
+              x="0"
+              y="34"
+              width="28"
+              height="2.5"
+              rx="1"
+              fill="#045E2C"
+              opacity="0.45"
+            />
+            <rect
+              x="332"
+              y="34"
+              width="28"
+              height="2.5"
+              rx="1"
+              fill="#045E2C"
+              opacity="0.45"
+            />
+            <rect
+              x="42"
+              y="36"
+              width="18"
+              height="2"
+              rx="1"
+              fill="#045E2C"
+              opacity="0.3"
+            />
+            <rect
+              x="300"
+              y="36"
+              width="18"
+              height="2"
+              rx="1"
+              fill="#045E2C"
+              opacity="0.3"
+            />
+          </svg>
+        </div>
+
+        <VCard
+          flat
+          class="aice-login__card"
+        >
+        <VCardText class="aice-login__card-head pa-6 pb-4">
           <h1 class="aice-login__title">
             Connexion
           </h1>
           <p class="aice-login__subtitle">
-            Accès au tableau de bord décisionnel
+            Accès au tableau de bord décisionnel AICE
           </p>
         </VCardText>
 
-        <VCardText>
+        <VCardText class="pa-6 pt-0">
           <VForm
             ref="refVForm"
             @submit.prevent="onSubmit"
           >
-            <VRow>
-              <VCol cols="12">
-                <AppTextField
-                  v-model="credentials.login"
-                  label="Identifiant"
-                  placeholder="Votre login"
-                  autofocus
-                  :rules="[requiredValidator]"
-                  :error-messages="errors.login"
-                />
-              </VCol>
+            <div class="aice-login__fields">
+              <AppTextField
+                v-model="credentials.login"
+                label="Identifiant"
+                placeholder="Votre login"
+                autofocus
+                :rules="[requiredValidator]"
+                :error-messages="errors.login"
+              />
 
-              <VCol cols="12">
-                <AppTextField
-                  v-model="credentials.password"
-                  label="Mot de passe"
-                  placeholder="············"
-                  :rules="[requiredValidator]"
-                  :type="isPasswordVisible ? 'text' : 'password'"
-                  autocomplete="current-password"
-                  :error-messages="errors.password"
-                  :append-inner-icon="isPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
-                  @click:append-inner="isPasswordVisible = !isPasswordVisible"
-                />
-              </VCol>
+              <AppTextField
+                v-model="credentials.password"
+                label="Mot de passe"
+                placeholder="············"
+                :rules="[requiredValidator]"
+                :type="isPasswordVisible ? 'text' : 'password'"
+                autocomplete="current-password"
+                :error-messages="errors.password"
+                :append-inner-icon="isPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
+                @click:append-inner="isPasswordVisible = !isPasswordVisible"
+              />
 
-              <VCol cols="12">
-                <VBtn
-                  block
-                  type="submit"
-                  :loading="isLoading"
-                >
-                  Se connecter
-                </VBtn>
-              </VCol>
-            </VRow>
+              <VBtn
+                block
+                size="large"
+                type="submit"
+                :loading="isLoading"
+                class="aice-login__submit"
+              >
+                Se connecter
+              </VBtn>
+            </div>
           </VForm>
         </VCardText>
-      </VCard>
+        </VCard>
+      </div>
 
       <p class="aice-login__footer">
         {{ themeConfig.app.title }} — usage interne
@@ -166,7 +247,7 @@ const onSubmit = () => {
 <style scoped lang="scss">
 .aice-login {
   align-items: center;
-  background: rgb(var(--v-theme-background));
+  background: #f5f7fa;
   display: flex;
   justify-content: center;
   min-block-size: 100dvh;
@@ -179,7 +260,7 @@ const onSubmit = () => {
 }
 
 .aice-login__brand {
-  margin-block-end: 2rem;
+  margin-block-end: 1.75rem;
   text-align: center;
 }
 
@@ -187,42 +268,92 @@ const onSubmit = () => {
   block-size: auto;
   display: inline-block;
   margin-inline: auto;
-  max-block-size: 88px;
+  max-block-size: 80px;
   max-inline-size: 100%;
   object-fit: contain;
 }
 
+.aice-login__eyebrow {
+  color: #6b7280;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  margin-block: 1rem 0.35rem;
+  text-transform: uppercase;
+}
+
 .aice-login__org {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: #374151;
   font-size: 0.8125rem;
   line-height: 1.5;
-  margin-block: 0.5rem 0;
-  margin-inline: auto;
+  margin: 0 auto;
   max-inline-size: 320px;
 }
 
+.aice-login__case {
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.06));
+}
+
+.aice-login__roof {
+  margin-block-end: -1px;
+  margin-inline: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.aice-login__roof-svg {
+  block-size: 40px;
+  display: block;
+  inline-size: 100%;
+}
+
 .aice-login__card {
-  background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 1));
+  background: #fff;
+  border: 1px solid #dde3ea;
+  border-end-end-radius: 12px;
+  border-end-start-radius: 12px;
+  border-start-end-radius: 4px;
+  border-start-start-radius: 4px;
+  box-shadow: none;
+  overflow: hidden;
+  position: relative;
+}
+
+.aice-login__card-head {
+  border-block-end: 1px solid #eef1f6;
 }
 
 .aice-login__title {
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-  font-size: 1.25rem;
+  color: #000;
+  font-size: 1.375rem;
   font-weight: 600;
-  margin-block-end: 0.25rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.25rem;
 }
 
 .aice-login__subtitle {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: #374151;
   font-size: 0.875rem;
+  line-height: 1.5;
   margin: 0;
 }
 
+.aice-login__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.aice-login__submit {
+  font-weight: 600;
+  margin-block-start: 0.25rem;
+  text-transform: none;
+}
+
 .aice-login__footer {
-  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+  color: #9ca3af;
   font-size: 0.75rem;
-  margin-block: 1.5rem 0;
+  margin-block: 1.25rem 0;
   text-align: center;
 }
 </style>

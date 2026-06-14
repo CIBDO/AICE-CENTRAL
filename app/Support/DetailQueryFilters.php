@@ -9,6 +9,8 @@ use Illuminate\Support\Collection;
 
 class DetailQueryFilters
 {
+    public const EMPTY_LABEL = 'Non renseigné';
+
     /**
      * @param  array<string, mixed>  $filters
      * @return array{0: int, 1: int, 2: Collection<int, int>}
@@ -71,6 +73,26 @@ class DetailQueryFilters
         }
 
         return $query;
+    }
+
+    /**
+     * Filtre une colonne nullable dont la valeur vide est affichée comme « Non renseigné ».
+     */
+    public static function applyEmptyableFieldFilter(Builder $query, string $column, mixed $value): Builder
+    {
+        if ($value === null || $value === '') {
+            return $query;
+        }
+
+        $value = (string) $value;
+
+        if ($value === self::EMPTY_LABEL) {
+            return $query->where(function (Builder $q) use ($column) {
+                $q->whereNull($column)->orWhere($column, '');
+            });
+        }
+
+        return $query->where($column, $value);
     }
 
     /**

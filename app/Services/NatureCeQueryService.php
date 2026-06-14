@@ -96,7 +96,7 @@ class NatureCeQueryService
         }
 
         if ($applyNatureCeFilter && !empty($filters['nature_ce'])) {
-            $query->where('nature_ce', $filters['nature_ce']);
+            DetailQueryFilters::applyEmptyableFieldFilter($query, 'nature_ce', $filters['nature_ce']);
         }
 
         if (!empty($filters['statut'])) {
@@ -108,7 +108,7 @@ class NatureCeQueryService
         }
 
         if (!empty($filters['chapitre'])) {
-            $query->where('chapitre', $filters['chapitre']);
+            DetailQueryFilters::applyEmptyableFieldFilter($query, 'chapitre', $filters['chapitre']);
         }
 
         if (!empty($filters['programme'])) {
@@ -126,7 +126,7 @@ class NatureCeQueryService
         $statut = fn (Mouvement $m): string => StatutNormalizer::normalize($m->statut, $m->statut_code) ?? '';
 
         return $rows
-            ->groupBy(fn (Mouvement $m) => $m->nature_ce ?: 'Non renseigné')
+            ->groupBy(fn (Mouvement $m) => $m->nature_ce ?: DetailQueryFilters::EMPTY_LABEL)
             ->map(function (Collection $group, string $code) use ($statut) {
                 $payes = $group->filter(
                     fn (Mouvement $m) => in_array($statut($m), ['Payé', 'Réglé'], true)
@@ -150,7 +150,7 @@ class NatureCeQueryService
     private function groupStat(Collection $rows, string $field, ?int $limit = null): array
     {
         $result = $rows
-            ->groupBy(fn (Mouvement $m) => $m->{$field} ?: 'Non renseigné')
+            ->groupBy(fn (Mouvement $m) => $m->{$field} ?: DetailQueryFilters::EMPTY_LABEL)
             ->map(fn (Collection $group, string $key) => [
                 'label' => $key,
                 'count' => $group->count(),

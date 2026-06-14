@@ -96,7 +96,7 @@ class ProgrammeQueryService
         }
 
         if ($applyProgrammeFilter && !empty($filters['programme'])) {
-            $query->where('code_programme', $filters['programme']);
+            DetailQueryFilters::applyEmptyableFieldFilter($query, 'code_programme', $filters['programme']);
         }
 
         if (!empty($filters['statut'])) {
@@ -108,7 +108,7 @@ class ProgrammeQueryService
         }
 
         if (!empty($filters['chapitre'])) {
-            $query->where('chapitre', $filters['chapitre']);
+            DetailQueryFilters::applyEmptyableFieldFilter($query, 'chapitre', $filters['chapitre']);
         }
 
         return DetailQueryFilters::applySearch($query, $filters, [
@@ -122,7 +122,7 @@ class ProgrammeQueryService
         $statut = fn (Mouvement $m): string => StatutNormalizer::normalize($m->statut, $m->statut_code) ?? '';
 
         return $rows
-            ->groupBy(fn (Mouvement $m) => $m->code_programme ?: 'Non renseigné')
+            ->groupBy(fn (Mouvement $m) => $m->code_programme ?: DetailQueryFilters::EMPTY_LABEL)
             ->map(function (Collection $group, string $code) use ($statut) {
                 $payes = $group->filter(
                     fn (Mouvement $m) => in_array($statut($m), ['Payé', 'Réglé'], true)
@@ -146,7 +146,7 @@ class ProgrammeQueryService
     private function groupStat(Collection $rows, string $field, ?int $limit = null): array
     {
         $result = $rows
-            ->groupBy(fn (Mouvement $m) => $m->{$field} ?: 'Non renseigné')
+            ->groupBy(fn (Mouvement $m) => $m->{$field} ?: DetailQueryFilters::EMPTY_LABEL)
             ->map(fn (Collection $group, string $key) => [
                 'label' => $key,
                 'count' => $group->count(),

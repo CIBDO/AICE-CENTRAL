@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\MouvementController;
 use App\Http\Controllers\Api\NatureCeController;
 use App\Http\Controllers\Api\RecetteController;
+use App\Http\Controllers\Api\RegionalSyncController;
 use App\Http\Controllers\Api\ProgrammeController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RegionController;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->middleware('region.token')->group(function () {
     Route::post('/health', [HealthController::class, 'check'])->name('api.health');
     Route::post('/receive/dashboard', [DashboardReceiverController::class, 'receive'])->name('api.receive.dashboard');
+    Route::get('/regions/{regionCode}/mouvements/existing-ids', [RegionalSyncController::class, 'existingIds'])
+        ->name('api.regions.mouvements.existing-ids');
 });
 
 Route::prefix('v1')->group(function () {

@@ -13,6 +13,10 @@ interface ExecutiveQuery {
   date_fin?: string
 }
 
+interface FetchOptions {
+  silent?: boolean
+}
+
 export function useExecutiveDashboard() {
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -21,9 +25,13 @@ export function useExecutiveDashboard() {
   const anomalies = ref<ExecutiveAnomaly[]>([])
   const predictions = ref<ExecutivePredictions | null>(null)
 
-  async function fetchAll(query: ExecutiveQuery = {}) {
-    loading.value = true
-    error.value = null
+  async function fetchAll(query: ExecutiveQuery = {}, options: FetchOptions = {}) {
+    const silent = options.silent ?? false
+
+    if (!silent)
+      loading.value = true
+    if (!silent)
+      error.value = null
 
     const params = {
       annee: query.annee,
@@ -46,10 +54,12 @@ export function useExecutiveDashboard() {
       predictions.value = predictionsRes.data
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : 'Impossible de charger le tableau de bord exécutif.'
+      if (!silent)
+        error.value = e instanceof Error ? e.message : 'Impossible de charger le tableau de bord exécutif.'
     }
     finally {
-      loading.value = false
+      if (!silent)
+        loading.value = false
     }
   }
 

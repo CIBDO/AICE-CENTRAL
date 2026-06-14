@@ -3,6 +3,7 @@ import type { KpiAccent } from '@/types/dashboard'
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
 import { formatDateFr, formatFcfa } from '@/composables/useFormat'
+import { useDashboardAutoRefresh } from '@/composables/useDashboardAutoRefresh'
 import { useDashboardFilterSync } from '@/composables/useDetailExplorerContext'
 import { useDashboardSummary } from '@/composables/useDashboardSummary'
 import { useRegions } from '@/composables/useRegions'
@@ -65,7 +66,7 @@ const mandatsTypeChart = computed(() => ({
   datasets: [{ label: 'Montant (FCFA)', data: summary.value?.mandats_par_type.map(r => r.montant) ?? [] }],
 }))
 
-async function loadDashboard() {
+async function loadDashboard(silent = false) {
   if (dateDebut.value && dateFin.value && dateDebut.value > dateFin.value)
     return
 
@@ -73,13 +74,15 @@ async function loadDashboard() {
     region_code: regionCode.value ?? undefined,
     date_debut: dateDebut.value,
     date_fin: dateFin.value,
-  })
+  }, { silent })
 
   if (!regionCode.value && summary.value?.region.code)
     regionCode.value = summary.value.region.code
 }
 
 watch([regionCode, dateDebut, dateFin], () => loadDashboard())
+
+useDashboardAutoRefresh(() => loadDashboard(true))
 
 onMounted(async () => {
   hydrateFromRoute()

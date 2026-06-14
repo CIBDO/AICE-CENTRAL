@@ -8,14 +8,22 @@ interface CentralQuery {
   date_fin?: string
 }
 
+interface FetchOptions {
+  silent?: boolean
+}
+
 export function useCentralSummary() {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const summary = ref<CentralSummary | null>(null)
 
-  async function fetchSummary(query: CentralQuery = {}) {
-    loading.value = true
-    error.value = null
+  async function fetchSummary(query: CentralQuery = {}, options: FetchOptions = {}) {
+    const silent = options.silent ?? false
+
+    if (!silent)
+      loading.value = true
+    if (!silent)
+      error.value = null
 
     try {
       const response = await $api<{ status: string; data: CentralSummary }>('/v1/central/summary', {
@@ -30,11 +38,14 @@ export function useCentralSummary() {
       summary.value = response.data
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : 'Impossible de charger le tableau de bord central.'
-      summary.value = null
+      if (!silent) {
+        error.value = e instanceof Error ? e.message : 'Impossible de charger le tableau de bord central.'
+        summary.value = null
+      }
     }
     finally {
-      loading.value = false
+      if (!silent)
+        loading.value = false
     }
   }
 

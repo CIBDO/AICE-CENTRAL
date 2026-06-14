@@ -8,6 +8,8 @@ export {}
 declare global {
   const $api: typeof import('./resources/ts/utils/api')['$api']
   const COOKIE_MAX_AGE_1_YEAR: typeof import('./resources/ts/utils/constants')['COOKIE_MAX_AGE_1_YEAR']
+  const DASHBOARD_AUTO_REFRESH_INTERVAL_MS: typeof import('./resources/ts/composables/useDashboardAutoRefresh')['DASHBOARD_AUTO_REFRESH_INTERVAL_MS']
+  const DASHBOARD_PUSH_INTERVAL_MS: typeof import('./resources/ts/composables/useDashboardAutoRefresh')['DASHBOARD_PUSH_INTERVAL_MS']
   const EffectScope: typeof import('vue')['EffectScope']
   const acceptHMRUpdate: typeof import('pinia')['acceptHMRUpdate']
   const alphaDashValidator: typeof import('./resources/ts/@core/utils/validators')['alphaDashValidator']
@@ -220,6 +222,7 @@ declare global {
   const useCurrentElement: typeof import('@vueuse/core')['useCurrentElement']
   const useCycleList: typeof import('@vueuse/core')['useCycleList']
   const useDark: typeof import('@vueuse/core')['useDark']
+  const useDashboardAutoRefresh: typeof import('./resources/ts/composables/useDashboardAutoRefresh')['useDashboardAutoRefresh']
   const useDashboardFilterSync: typeof import('./resources/ts/composables/useDetailExplorerContext')['useDashboardFilterSync']
   const useDashboardSummary: typeof import('./resources/ts/composables/useDashboardSummary')['useDashboardSummary']
   const useDateFormat: typeof import('@vueuse/core')['useDateFormat']
@@ -404,6 +407,8 @@ declare module 'vue' {
   interface ComponentCustomProperties {
     readonly $api: UnwrapRef<typeof import('./resources/ts/utils/api')['$api']>
     readonly COOKIE_MAX_AGE_1_YEAR: UnwrapRef<typeof import('./resources/ts/utils/constants')['COOKIE_MAX_AGE_1_YEAR']>
+    readonly DASHBOARD_AUTO_REFRESH_INTERVAL_MS: UnwrapRef<typeof import('./resources/ts/composables/useDashboardAutoRefresh')['DASHBOARD_AUTO_REFRESH_INTERVAL_MS']>
+    readonly DASHBOARD_PUSH_INTERVAL_MS: UnwrapRef<typeof import('./resources/ts/composables/useDashboardAutoRefresh')['DASHBOARD_PUSH_INTERVAL_MS']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly acceptHMRUpdate: UnwrapRef<typeof import('pinia')['acceptHMRUpdate']>
     readonly alphaDashValidator: UnwrapRef<typeof import('./resources/ts/@core/utils/validators')['alphaDashValidator']>
@@ -616,6 +621,7 @@ declare module 'vue' {
     readonly useCurrentElement: UnwrapRef<typeof import('@vueuse/core')['useCurrentElement']>
     readonly useCycleList: UnwrapRef<typeof import('@vueuse/core')['useCycleList']>
     readonly useDark: UnwrapRef<typeof import('@vueuse/core')['useDark']>
+    readonly useDashboardAutoRefresh: UnwrapRef<typeof import('./resources/ts/composables/useDashboardAutoRefresh')['useDashboardAutoRefresh']>
     readonly useDashboardFilterSync: UnwrapRef<typeof import('./resources/ts/composables/useDetailExplorerContext')['useDashboardFilterSync']>
     readonly useDashboardSummary: UnwrapRef<typeof import('./resources/ts/composables/useDashboardSummary')['useDashboardSummary']>
     readonly useDateFormat: UnwrapRef<typeof import('@vueuse/core')['useDateFormat']>

@@ -3,6 +3,7 @@ import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
 import type { KpiAccent } from '@/types/dashboard'
 import { formatDateFr, formatFcfa } from '@/composables/useFormat'
+import { useDashboardAutoRefresh } from '@/composables/useDashboardAutoRefresh'
 import { useDashboardFilterSync } from '@/composables/useDetailExplorerContext'
 import { useCentralSummary } from '@/composables/useCentralSummary'
 
@@ -66,17 +67,19 @@ const recettesChart = computed(() => {
   }
 })
 
-async function loadDashboard() {
+async function loadDashboard(silent = false) {
   if (dateDebut.value && dateFin.value && dateDebut.value > dateFin.value)
     return
 
   await fetchSummary({
     date_debut: dateDebut.value,
     date_fin: dateFin.value,
-  })
+  }, { silent })
 }
 
 watch([dateDebut, dateFin], () => loadDashboard())
+
+useDashboardAutoRefresh(() => loadDashboard(true))
 
 onMounted(async () => {
   hydrateFromRoute()

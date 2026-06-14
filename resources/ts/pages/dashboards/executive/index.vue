@@ -9,6 +9,7 @@ import {
   formatFcfa,
   formatPercent,
 } from '@/composables/useFormat'
+import { useDashboardAutoRefresh } from '@/composables/useDashboardAutoRefresh'
 import { useDashboardFilterSync } from '@/composables/useDetailExplorerContext'
 import { useExecutiveDashboard } from '@/composables/useExecutiveDashboard'
 
@@ -159,17 +160,19 @@ function evolutionClass(value: number | null | undefined) {
   return 'text-medium-emphasis'
 }
 
-async function loadDashboard() {
+async function loadDashboard(silent = false) {
   if (dateDebut.value && dateFin.value && dateDebut.value > dateFin.value)
     return
 
   await fetchAll({
     date_debut: dateDebut.value,
     date_fin: dateFin.value,
-  })
+  }, { silent })
 }
 
 watch([dateDebut, dateFin], () => loadDashboard())
+
+useDashboardAutoRefresh(() => loadDashboard(true))
 
 onMounted(async () => {
   hydrateFromRoute()

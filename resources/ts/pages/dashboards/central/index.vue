@@ -87,7 +87,6 @@ onMounted(async () => {
 <template>
   <div class="aice-page aice-central-dashboard">
     <ExplorerHero
-      icon="tabler-chart-dots-3"
       title="Tableau de bord central"
       subtitle="Vue agrégée de toutes les régions actives."
       class="aice-dashboard-hero"

@@ -93,8 +93,7 @@ onMounted(async () => {
 
 <template>
   <div class="aice-page aice-regional-dashboard">
-    <ExplorerHero
-      icon="tabler-chart-bar"
+     <ExplorerHero
       title="Tableau de bord régional"
       class="aice-dashboard-hero"
       :stats="heroStats"
@@ -107,7 +106,7 @@ onMounted(async () => {
           {{ regionLabel }}{{ lastUpdate ? ` · MAJ ${lastUpdate}` : '' }}
         </div>
       </template>
-    </ExplorerHero>
+    </ExplorerHero> 
 
     <QuickLinkGrid :links="quickLinks" />
 

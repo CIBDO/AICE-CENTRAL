@@ -180,7 +180,6 @@ onMounted(async () => {
 <template>
   <div class="aice-page aice-executive-dashboard">
     <ExplorerHero
-      icon="tabler-chart-line"
       title="Tableau de bord exécutif"
       :subtitle="`Synthèse nationale · ${periodLabel}`"
       class="aice-dashboard-hero"

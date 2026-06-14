@@ -5,13 +5,14 @@ interface HeroStat {
 }
 
 interface Props {
-  icon: string
+  icon?: string
   title: string
   subtitle?: string
   stats?: HeroStat[]
 }
 
 withDefaults(defineProps<Props>(), {
+  icon: undefined,
   subtitle: undefined,
   stats: () => [],
 })
@@ -20,7 +21,10 @@ withDefaults(defineProps<Props>(), {
 <template>
   <header class="aice-explorer-hero">
     <div>
-      <div class="aice-explorer-hero__icon">
+      <div
+        v-if="icon"
+        class="aice-explorer-hero__icon"
+      >
         <VIcon
           :icon="icon"
           size="26"

@@ -61,12 +61,11 @@ class MandatCounter
             ->where('type', 'recette')
             ->sum(fn (Mouvement $m) => (float) $m->montant);
 
-        $depenseMandats = self::dedupeForCount(
-            self::filterMandats($rows)->filter(
-                fn (Mouvement $m) => ! StatutNormalizer::isExcluded($m->statut, $m->statut_code)
-            )
+        // Ordonnancé = somme des lignes NAV (MP_MT_BRUT_ORD), aligné écran Mandats / Types de mandats.
+        $mandatLines = self::filterMandats($rows)->filter(
+            fn (Mouvement $m) => self::isNavLineCountable($m)
         );
-        $ordonnance = (float) $depenseMandats->sum(fn (Mouvement $m) => (float) $m->montant);
+        $ordonnance = (float) $mandatLines->sum(fn (Mouvement $m) => (float) $m->montant);
         $montantPaye = self::montantPayeTotal($rows);
 
         return [
@@ -151,20 +150,47 @@ class MandatCounter
     }
 
     /**
-     * Compte au niveau mandat (numéro + type + date), en évitant les doublons entre pushs.
+     * Compte au niveau mandat (numéro + type), aligné NAV / COUNT(DISTINCT numero_mandat).
+     * La vue v_dashboard_mandats « lignes » expose plusieurs enregistrements NAV par mandat
+     * (historique de statuts) : on conserve la ligne la plus récente.
      *
      * @param  Collection<int, Mouvement>  $mouvements
      * @return Collection<int, Mouvement>
      */
     public static function dedupeForCount(Collection $mouvements): Collection
     {
-        return $mouvements->unique(function (Mouvement $m) {
-            $code = self::resolveTypeCode($m) ?? '';
-            $numero = $m->source_numero_mandat ?: $m->regional_id;
-            $date = $m->date_mouvement?->format('Y-m-d') ?? 'null';
+        return $mouvements
+            ->groupBy(fn (Mouvement $m) => self::mandatKey($m))
+            ->map(function (Collection $group) {
+                return $group->sortByDesc(function (Mouvement $m) {
+                    $date = $m->date_mouvement?->format('Y-m-d') ?? '0000-01-01';
+                    $pushId = (string) ($m->regional_id ?? '');
 
-            return implode('|', [$numero, $code, $date]);
-        });
+                    return $date.'|'.$pushId;
+                })->first();
+            })
+            ->values();
+    }
+
+    private static function mandatKey(Mouvement $m): string
+    {
+        $code = self::resolveTypeCode($m) ?? '';
+        $numero = (string) ($m->source_numero_mandat ?: $m->regional_id);
+
+        return implode('|', [$numero, $code]);
+    }
+
+    /**
+     * Lignes mandats alignées écran NAV (1 ligne = 1 enregistrement SAN$Mandat).
+     *
+     * @param  Collection<int, Mouvement>  $mouvements
+     * @return Collection<int, Mouvement>
+     */
+    public static function navMandatLines(Collection $mouvements): Collection
+    {
+        return self::filterMandats(self::dedupeRows($mouvements))->filter(
+            fn (Mouvement $m) => self::isNavLineCountable($m)
+        );
     }
 
     /**
@@ -173,12 +199,13 @@ class MandatCounter
      */
     public static function parType(Collection $mouvements): array
     {
-        $deduped = self::dedupeForCount(self::filterMandats(self::dedupeRows($mouvements)));
+        // Comptage par ligne NAV (écran Mandats), référence métier AICE.
+        $rows = self::navMandatLines($mouvements);
         $result = [];
 
         foreach (self::TYPE_LABELS as $code => $label) {
             $code = (string) $code;
-            $subset = $deduped->filter(fn (Mouvement $m) => self::resolveTypeCode($m) === $code);
+            $subset = $rows->filter(fn (Mouvement $m) => self::resolveTypeCode($m) === $code);
             $result[] = [
                 'code' => $code,
                 'libelle' => $label,
@@ -197,9 +224,7 @@ class MandatCounter
     public static function parStatut(Collection $mouvements): array
     {
         // Comptage par ligne NAV (écran Mandats), pas par dédup (numero + type).
-        $rows = self::filterMandats(self::dedupeRows($mouvements))->filter(
-            fn (Mouvement $m) => ! StatutNormalizer::isExcluded($m->statut, $m->statut_code)
-        );
+        $rows = self::navMandatLines($mouvements);
 
         return $rows
             ->groupBy(fn (Mouvement $m) => StatutNormalizer::normalize($m->statut, $m->statut_code) ?? 'Non renseigné')
@@ -214,20 +239,74 @@ class MandatCounter
             ->all();
     }
 
+    /**
+     * Ligne comptable comme l'écran NAV (inclut statut vide, exclut DIAG/TEST).
+     */
+    private static function isNavLineCountable(Mouvement $m): bool
+    {
+        $label = StatutNormalizer::normalize($m->statut, $m->statut_code);
+        if ($label === null) {
+            return true;
+        }
+
+        return ! in_array(mb_strtoupper($label), ['DIAG', 'TEST', 'N/A'], true);
+    }
+
     private static function resolveTypeCode(Mouvement $m): ?string
     {
-        $code = trim((string) ($m->type_mandat ?? ''));
+        // Priorité au libellé (aligné AICE / écran Mandats), puis au code MP_TYPE.
+        $libelle = self::normalizeTypeLibelle($m->type_mandat_libelle);
+        if ($libelle !== null) {
+            $byLabel = array_flip(self::TYPE_LABELS);
+
+            return (string) $byLabel[$libelle];
+        }
+
+        return self::normalizeTypeCode($m->type_mandat);
+    }
+
+    private static function normalizeTypeCode(mixed $raw): ?string
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $code = trim((string) $raw);
         if (in_array($code, ['0', '1', '2'], true)) {
             return $code;
         }
 
-        $libelle = $m->type_mandat_libelle;
-        if ($libelle === null || $libelle === '') {
+        if (is_numeric($code)) {
+            $normalized = (string) (int) $code;
+            if (in_array($normalized, ['0', '1', '2'], true)) {
+                return $normalized;
+            }
+        }
+
+        return null;
+    }
+
+    private static function normalizeTypeLibelle(?string $libelle): ?string
+    {
+        if ($libelle === null || trim($libelle) === '') {
             return null;
         }
 
-        $byLabel = array_flip(self::TYPE_LABELS);
+        if (in_array($libelle, self::TYPE_LABELS, true)) {
+            return $libelle;
+        }
 
-        return isset($byLabel[$libelle]) ? (string) $byLabel[$libelle] : null;
+        $aliases = [
+            'matériel' => 'Matériel',
+            'materiel' => 'Matériel',
+            'matériels' => 'Matériel',
+            'materiels' => 'Matériel',
+            'salaire' => 'Salaire',
+            'salaires' => 'Salaire',
+            'reversement' => 'Reversement',
+            'reversements' => 'Reversement',
+        ];
+
+        return $aliases[mb_strtolower(trim($libelle))] ?? null;
     }
 }

@@ -78,12 +78,13 @@ class MouvementQueryService
     {
         $rows = MandatCounter::dedupeRows($this->baseQuery($filters)->get());
         $financial = MandatCounter::financialTotals($rows);
-        $mandats = MandatCounter::mandatsForStats($rows);
+        $mandatLines = MandatCounter::navMandatLines($rows);
 
         return [
             'totaux' => [
                 'count' => $rows->count(),
-                'depenses_count' => $mandats->count(),
+                'depenses_count' => $mandatLines->count(),
+                'mandats_distincts_count' => MandatCounter::mandatsForStats($rows)->count(),
                 'recettes_count' => $rows->where('type', 'recette')->count(),
                 'montant_ordonnance' => $financial['total_ordonnance'],
                 'montant_recouvrements_4121' => $financial['total_recouvrements_4121'],
@@ -97,7 +98,7 @@ class MouvementQueryService
                 fn (array $row) => ['label' => $row['libelle'], 'code' => $row['code'], 'count' => $row['count'], 'montant' => $row['montant']],
                 MandatCounter::parType($rows)
             ),
-            'par_programme' => $this->groupStat($mandats, 'code_programme', 8),
+            'par_programme' => $this->groupStat($mandatLines, 'code_programme', 8),
             'par_jour' => $this->groupByDay($rows),
         ];
     }

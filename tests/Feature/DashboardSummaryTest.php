@@ -102,7 +102,7 @@ class DashboardSummaryTest extends TestCase
         $response->assertJsonPath('data.meta.mouvements_count', 2);
     }
 
-    public function test_summary_counts_mandats_par_type_with_deduplication(): void
+    public function test_summary_counts_mandats_par_type_as_nav_lignes(): void
     {
         Sanctum::actingAs(User::factory()->create());
 
@@ -174,7 +174,7 @@ class DashboardSummaryTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('data.mandats_par_type.0.libelle', 'Matériel');
-        $response->assertJsonPath('data.mandats_par_type.0.count', 2);
+        $response->assertJsonPath('data.mandats_par_type.0.count', 4);
         $response->assertJsonPath('data.mandats_par_type.1.count', 1);
         $response->assertJsonPath('data.mandats_par_type.2.count', 0);
     }

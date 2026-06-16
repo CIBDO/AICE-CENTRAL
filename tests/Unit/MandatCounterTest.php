@@ -8,7 +8,7 @@ use Tests\TestCase;
 
 class MandatCounterTest extends TestCase
 {
-    public function test_par_type_deduplicates_by_numero_type_and_date(): void
+    public function test_par_type_counts_nav_lignes_per_type(): void
     {
         $rows = collect([
             new Mouvement([
@@ -18,6 +18,7 @@ class MandatCounterTest extends TestCase
                 'date_mouvement' => '2024-03-10',
                 'montant' => 100,
                 'type' => 'depense',
+                'statut' => 'Payé',
             ]),
             new Mouvement([
                 'type_mandat' => '0',
@@ -26,6 +27,7 @@ class MandatCounterTest extends TestCase
                 'date_mouvement' => '2024-03-10',
                 'montant' => 100,
                 'type' => 'depense',
+                'statut' => 'Réglé',
             ]),
             new Mouvement([
                 'type_mandat' => '1',
@@ -34,6 +36,7 @@ class MandatCounterTest extends TestCase
                 'date_mouvement' => '2024-03-11',
                 'montant' => 50,
                 'type' => 'depense',
+                'statut' => 'Admis',
             ]),
         ]);
 
@@ -41,9 +44,117 @@ class MandatCounterTest extends TestCase
 
         $this->assertSame(3, count($result));
         $this->assertSame('Matériel', $result[0]['libelle']);
-        $this->assertSame(1, $result[0]['count']);
+        $this->assertSame(2, $result[0]['count']);
+        $this->assertSame(200.0, $result[0]['montant']);
         $this->assertSame(1, $result[1]['count']);
         $this->assertSame(0, $result[2]['count']);
+    }
+
+    public function test_par_type_counts_status_history_lines_for_same_mandat(): void
+    {
+        $rows = collect([
+            new Mouvement([
+                'type_mandat' => '1',
+                'type_mandat_libelle' => 'Salaire',
+                'source_numero_mandat' => '67',
+                'date_mouvement' => '2024-01-10',
+                'montant' => 100,
+                'type' => 'depense',
+                'statut' => 'Visé',
+            ]),
+            new Mouvement([
+                'type_mandat' => '1',
+                'type_mandat_libelle' => 'Salaire',
+                'source_numero_mandat' => '67',
+                'date_mouvement' => '2024-06-15',
+                'montant' => 200,
+                'type' => 'depense',
+                'statut' => 'Payé',
+            ]),
+        ]);
+
+        $salaire = collect(MandatCounter::parType($rows))->firstWhere('libelle', 'Salaire');
+
+        $this->assertSame(2, $salaire['count']);
+        $this->assertSame(300.0, $salaire['montant']);
+    }
+
+    public function test_par_type_counts_lines_with_null_statut(): void
+    {
+        $rows = collect([
+            new Mouvement([
+                'type_mandat' => '0',
+                'type_mandat_libelle' => 'Matériel',
+                'source_numero_mandat' => 'M-null',
+                'date_mouvement' => '2024-03-10',
+                'montant' => 100,
+                'type' => 'depense',
+            ]),
+        ]);
+
+        $materiel = collect(MandatCounter::parType($rows))->firstWhere('libelle', 'Matériel');
+
+        $this->assertSame(1, $materiel['count']);
+    }
+
+    public function test_resolve_type_code_prioritizes_libelle_over_code(): void
+    {
+        $rows = collect([
+            new Mouvement([
+                'type_mandat' => '1',
+                'type_mandat_libelle' => 'Matériel',
+                'source_numero_mandat' => 'M-lib',
+                'date_mouvement' => '2024-03-10',
+                'montant' => 100,
+                'type' => 'depense',
+                'statut' => 'Payé',
+            ]),
+        ]);
+
+        $materiel = collect(MandatCounter::parType($rows))->firstWhere('libelle', 'Matériel');
+        $salaire = collect(MandatCounter::parType($rows))->firstWhere('libelle', 'Salaire');
+
+        $this->assertSame(1, $materiel['count']);
+        $this->assertSame(0, $salaire['count']);
+    }
+
+    public function test_financial_totals_ordonnance_matches_sum_of_par_type_montants(): void
+    {
+        $rows = collect([
+            new Mouvement([
+                'type_mandat' => '0',
+                'type_mandat_libelle' => 'Matériel',
+                'source_numero_mandat' => 'M-1',
+                'date_mouvement' => '2024-03-10',
+                'montant' => 100,
+                'type' => 'depense',
+                'statut' => 'Payé',
+            ]),
+            new Mouvement([
+                'type_mandat' => '0',
+                'type_mandat_libelle' => 'Matériel',
+                'source_numero_mandat' => 'M-1',
+                'date_mouvement' => '2024-06-15',
+                'montant' => 200,
+                'type' => 'depense',
+                'statut' => 'Réglé',
+            ]),
+            new Mouvement([
+                'type_mandat' => '1',
+                'type_mandat_libelle' => 'Salaire',
+                'source_numero_mandat' => 'S-1',
+                'date_mouvement' => '2024-03-11',
+                'montant' => 50,
+                'type' => 'depense',
+                'statut' => 'Admis',
+            ]),
+        ]);
+
+        $financial = MandatCounter::financialTotals($rows);
+        $typeTotal = array_sum(array_column(MandatCounter::parType($rows), 'montant'));
+
+        $this->assertSame(350.0, $financial['total_ordonnance']);
+        $this->assertSame($typeTotal, $financial['total_ordonnance']);
     }
 
     public function test_montant_paye_total_sums_paye_and_regle_mandats(): void

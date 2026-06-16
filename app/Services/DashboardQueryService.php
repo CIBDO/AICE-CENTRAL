@@ -58,9 +58,22 @@ class DashboardQueryService
             ->where('region_id', $region->id)
             ->pluck('id');
 
+        $annee = (int) substr($dateDebut, 0, 4);
+        $isFullYear = $dateDebut === "{$annee}-01-01" && $dateFin === "{$annee}-12-31";
+
+        // Aligné écran NAV : filtre « Année » = colonne annee (MP_ANNEE), pas seulement date_emission.
         $mouvements = Mouvement::query()
             ->whereIn('dashboard_id', $dashboardIds)
-            ->whereBetween('date_mouvement', [$dateDebut, $dateFin])
+            ->when(
+                $isFullYear,
+                fn ($query) => $query->where('annee', $annee),
+                fn ($query) => $query->where(function ($inner) use ($dateDebut, $dateFin, $annee) {
+                    $inner->whereBetween('date_mouvement', [$dateDebut, $dateFin])
+                        ->orWhere(function ($fallback) use ($annee) {
+                            $fallback->where('annee', $annee)->whereNull('date_mouvement');
+                        });
+                })
+            )
             ->get();
 
         if ($mouvements->isEmpty()) {
@@ -135,20 +148,31 @@ class DashboardQueryService
      */
     private function buildSummary(Region $region, Dashboard $dashboard, Collection $mouvements, array $periode): array
     {
+        $financial = MandatCounter::financialTotals($mouvements);
+        $recouvrements = $financial['total_recouvrements_4121'] > 0
+            ? $financial['total_recouvrements_4121']
+            : (float) $dashboard->total_recouvrements_4121;
+
+        $kpis = DashboardKpis::fromFinancialTotals([
+            'total_ordonnance' => $financial['total_ordonnance'],
+            'total_recouvrements_4121' => $recouvrements,
+            'total_montant_paye' => $financial['total_montant_paye'],
+        ], (float) $dashboard->tresorerie_reelle);
+
         return [
             'region' => [
                 'code' => $region->code,
                 'nom' => $region->nom,
             ],
             'periode' => $periode,
-            'kpis' => DashboardKpis::fromDashboard($dashboard),
+            'kpis' => $kpis,
             'mandats_par_type' => $this->mandatsParType($mouvements),
             'statuts_mandats' => $this->statutsMandats($mouvements),
             'meta' => [
                 'dashboard_id' => $dashboard->id,
                 'regional_id' => $dashboard->regional_id,
                 'derniere_mise_a_jour' => $dashboard->updated_at?->toIso8601String(),
-                'mouvements_count' => $mouvements->count(),
+                'mouvements_count' => MandatCounter::dedupeRows($mouvements)->count(),
             ],
         ];
     }

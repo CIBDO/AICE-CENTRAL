@@ -39,6 +39,7 @@ export interface MouvementStats {
   totaux: {
     count: number
     depenses_count: number
+    mandats_distincts_count?: number
     recettes_count: number
     montant_ordonnance: number
     montant_recouvrements_4121: number

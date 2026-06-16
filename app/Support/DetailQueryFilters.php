@@ -58,8 +58,21 @@ class DetailQueryFilters
     ): Builder {
         if (!empty($filters['date_debut'])) {
             $fin = $filters['date_fin'] ?? $filters['date_debut'];
+            $annee = (int) substr((string) $filters['date_debut'], 0, 4);
+            $isFullYear = $filters['date_debut'] === "{$annee}-01-01" && $fin === "{$annee}-12-31";
 
-            return $query->whereBetween($dateColumn, [$filters['date_debut'], $fin]);
+            if ($isFullYear && $supportsAnneeMois) {
+                return $query->where('annee', $annee);
+            }
+
+            return $query->where(function (Builder $inner) use ($dateColumn, $filters, $fin, $annee, $supportsAnneeMois) {
+                $inner->whereBetween($dateColumn, [$filters['date_debut'], $fin]);
+                if ($supportsAnneeMois) {
+                    $inner->orWhere(function (Builder $fallback) use ($annee) {
+                        $fallback->where('annee', $annee)->whereNull($dateColumn);
+                    });
+                }
+            });
         }
 
         if ($supportsAnneeMois) {

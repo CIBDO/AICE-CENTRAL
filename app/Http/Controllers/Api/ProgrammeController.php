@@ -37,8 +37,8 @@ class ProgrammeController extends Controller
         $rows = $this->service->exportRows($filters);
 
         return CsvExporter::download(
-            'programmes-mandats.csv',
-            ['Date', 'Programme', 'Code', 'Chapitre', 'Libellé', 'Statut', 'Bénéficiaire', 'N° mandat', 'Montant (FCFA)'],
+            'mandats-par-programme.csv',
+            ['Date', 'Programme', 'Code programme', 'Chapitre', 'Libellé', 'Statut', 'Bénéficiaire', 'N° mandat', 'Montant (FCFA)'],
             $rows->map(fn ($m) => [
                 $m->date_mouvement?->format('d/m/Y') ?? '',
                 $m->programme ?? '',

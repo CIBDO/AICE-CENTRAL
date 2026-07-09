@@ -227,7 +227,7 @@ const headers = [
     <ExplorerHero
       icon="tabler-category"
       title="Explorateur natures CE"
-      subtitle="Vue agrégée par nature de crédit d'engagement — sélection, exécution et drill-down mandats."
+      subtitle="Vue agrégée des mandats par nature CE. Les recettes sont consultées dans l'explorateur Recettes."
       :stats="heroStats"
     />
 
@@ -259,7 +259,7 @@ const headers = [
           v-model="search"
           density="compact"
           hide-details
-          placeholder="Nature CE, chapitre, libellé…"
+          placeholder="Rechercher une nature CE, un chapitre, un libellé…"
           prepend-inner-icon="tabler-search"
           style="min-inline-size: 220px; flex: 1;"
           clearable
@@ -277,7 +277,7 @@ const headers = [
         </VBtn>
         <ExportButton
           path="/v1/natures-ce/export"
-          filename="natures-ce-mandats.csv"
+          filename="mandats-par-nature-ce.csv"
           :query="exportQuery"
         />
       </div>
@@ -323,7 +323,7 @@ const headers = [
     <DataPanel
       v-if="stats?.natures_ce.length"
       title="Natures CE"
-      :subtitle="natureCeFilter ? `Filtre : ${natureCeFilter}` : 'Cliquez une carte pour filtrer les mandats'"
+      :subtitle="natureCeFilter ? `Nature CE filtrée : ${natureCeFilter}` : 'Cliquez une carte pour filtrer les mandats de cette nature CE'"
       class="mb-4"
     >
       <VRow>
@@ -392,7 +392,7 @@ const headers = [
         lg="6"
       >
         <DataPanel
-          title="Exécution journalière"
+          title="Flux journalier des mandats"
           :subtitle="periodLabel"
         >
           <SparklineChart
@@ -402,13 +402,19 @@ const headers = [
             label="Montant"
             :height="220"
           />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucun flux journalier de mandats par nature CE sur cette période.
+          </div>
         </DataPanel>
       </VCol>
       <VCol
         cols="12"
         lg="6"
       >
-        <DataPanel title="Par statut">
+        <DataPanel title="Statuts des mandats">
           <ChartWidget
             v-if="statutChart.labels.length"
             type="doughnut"
@@ -416,6 +422,12 @@ const headers = [
             :datasets="statutChart.datasets"
             :height="220"
           />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucun statut de mandat disponible sur cette période.
+          </div>
         </DataPanel>
       </VCol>
     </VRow>
@@ -426,8 +438,8 @@ const headers = [
     >
       <VCol cols="12">
         <DataPanel
-          title="Répartition par chapitre"
-          subtitle="Cliquer un chapitre pour filtrer"
+          title="Répartition des mandats par chapitre"
+          subtitle="Cliquer un chapitre pour filtrer les mandats"
         >
           <div class="d-flex flex-wrap gap-2 mb-3">
             <VChip
@@ -463,6 +475,7 @@ const headers = [
         class="aice-data-table aice-data-table--clickable"
         :items-per-page="-1"
         hide-default-footer
+        no-data-text="Aucun mandat trouvé pour les filtres sélectionnés."
         @click:row="(_ev: Event, ctx: { item: MouvementRow }) => openMandat(ctx.item)"
       >
         <template #item.date_mouvement="{ item }">
@@ -535,5 +548,12 @@ const headers = [
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.aice-panel-empty {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.8125rem;
+  padding-block: 2rem;
+  text-align: center;
 }
 </style>

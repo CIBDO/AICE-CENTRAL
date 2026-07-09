@@ -42,14 +42,18 @@ const heroStats = computed(() => {
   if (!summary.value) {
     return [
       { label: 'Régions actives', value: '—' },
-      { label: 'Avec données', value: '—' },
+      { label: 'Mandats', value: '—' },
+      { label: 'Recettes', value: '—' },
+      { label: 'Tous mouvements', value: '—' },
       { label: 'Période', value: periodLabel.value },
     ]
   }
 
   return [
     { label: 'Régions actives', value: String(summary.value.meta.regions_actives) },
-    { label: 'Avec données', value: String(summary.value.meta.regions_avec_donnees) },
+    { label: 'Mandats', value: summary.value.meta.mandats_count.toLocaleString('fr-FR') },
+    { label: 'Recettes', value: summary.value.meta.recettes_count.toLocaleString('fr-FR') },
+    { label: 'Tous mouvements', value: summary.value.meta.mouvements_count.toLocaleString('fr-FR') },
     { label: 'Période', value: periodLabel.value },
   ]
 })
@@ -183,7 +187,7 @@ onMounted(async () => {
       class="mb-4"
       density="compact"
     >
-      Aucune donnée reçue entre le {{ periodLabel }}.
+      Aucune donnée mandatée ou recette reçue entre le {{ periodLabel }}.
       Élargissez la plage de dates si les données proviennent d'une autre période.
     </VAlert>
 
@@ -237,7 +241,7 @@ onMounted(async () => {
             v-else
             class="aice-panel-empty"
           >
-            Aucune donnée graphique pour cette période.
+            Aucun recouvrement régional disponible sur cette période.
           </div>
         </DataPanel>
       </VCol>
@@ -303,6 +307,12 @@ onMounted(async () => {
               </tr>
             </tbody>
           </VTable>
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucune région avec données pour cette période.
+          </div>
         </DataPanel>
       </VCol>
     </VRow>

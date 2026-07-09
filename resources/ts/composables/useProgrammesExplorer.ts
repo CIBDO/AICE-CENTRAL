@@ -55,7 +55,7 @@ export function useProgrammesExplorer() {
       meta.value = response.meta
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : 'Impossible de charger les programmes.'
+      error.value = e instanceof Error ? e.message : 'Impossible de charger les mandats par programme.'
       items.value = []
       stats.value = null
     }

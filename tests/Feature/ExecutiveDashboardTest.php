@@ -69,6 +69,9 @@ class ExecutiveDashboardTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('data.indicateurs.mandats_total', 2);
         $response->assertJsonPath('data.indicateurs.recouvrements_4121_total', 1000);
+        $response->assertJsonPath('data.meta.mandats_count', 2);
+        $response->assertJsonPath('data.meta.recettes_count', 0);
+        $response->assertJsonPath('data.meta.mouvements_count', 2);
     }
 
     public function test_executive_alertes_lists_region_without_data(): void

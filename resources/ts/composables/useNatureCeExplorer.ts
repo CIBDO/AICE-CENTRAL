@@ -54,7 +54,7 @@ export function useNatureCeExplorer() {
       meta.value = response.meta
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : 'Impossible de charger les natures CE.'
+      error.value = e instanceof Error ? e.message : 'Impossible de charger les mandats par nature CE.'
       items.value = []
       stats.value = null
     }

@@ -50,8 +50,10 @@ const heroStats = computed(() => {
   const meta = kpis.value?.meta
   if (!ind || !meta) {
     return [
-      { label: 'Régions', value: '—' },
+      { label: 'Régions actives', value: '—' },
       { label: 'Mandats', value: '—' },
+      { label: 'Recettes', value: '—' },
+      { label: 'Tous mouvements', value: '—' },
       { label: 'Période', value: periodLabel.value },
     ]
   }
@@ -59,7 +61,9 @@ const heroStats = computed(() => {
   return [
     { label: 'Régions actives', value: `${meta.regions_avec_donnees} / ${meta.regions_actives}` },
     { label: 'Mandats', value: ind.mandats_total.toLocaleString('fr-FR') },
-    { label: 'Ordonnancé', value: formatFcfa(ind.ordonnance_total) },
+    { label: 'Recettes', value: meta.recettes_count.toLocaleString('fr-FR') },
+    { label: 'Tous mouvements', value: meta.mouvements_count.toLocaleString('fr-FR') },
+    { label: 'Période', value: periodLabel.value },
   ]
 })
 
@@ -279,7 +283,7 @@ onMounted(async () => {
       class="mb-4"
       density="compact"
     >
-      Aucune donnée nationale pour {{ periodLabel }}.
+      Aucune donnée nationale mandatée ou recette pour {{ periodLabel }}.
       Élargissez la plage ou vérifiez les pushs régionaux (AICE-API).
     </VAlert>
 
@@ -367,7 +371,7 @@ onMounted(async () => {
               v-if="!comparaisonRows.length"
               class="aice-panel-empty"
             >
-              Données insuffisantes pour comparer.
+              Données insuffisantes pour comparer les indicateurs de pilotage.
             </div>
             <div
               v-else
@@ -437,6 +441,12 @@ onMounted(async () => {
               <p class="aice-trend-block__hint">
                 Réalisé à ce jour : {{ formatFcfa(predictions.depenses_mois_courant) }}
               </p>
+            </div>
+            <div
+              v-else
+              class="aice-panel-empty"
+            >
+              Aucune projection disponible sur cette période.
             </div>
           </DataPanel>
         </VCol>
@@ -518,7 +528,7 @@ onMounted(async () => {
               v-if="!anomalies.length"
               class="aice-panel-empty"
             >
-              Aucune anomalie significative détectée.
+              Aucune anomalie régionale significative détectée.
             </div>
             <div
               v-else

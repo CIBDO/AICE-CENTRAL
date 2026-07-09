@@ -33,14 +33,24 @@ class CentralAggregationService
 
         $regionsWithData = 0;
         $latestUpdate = null;
+        $globalMandatsCount = 0;
+        $globalRecettesCount = 0;
+        $globalMouvementsCount = 0;
 
         foreach ($regions as $region) {
             $dashboard = $this->resolveDashboard($region, $annee, $mois);
-            $mouvementsCount = 0;
+            $counts = [
+                'mouvements_count' => 0,
+                'mandats_count' => 0,
+                'recettes_count' => 0,
+            ];
 
             if ($dashboard) {
-                $mouvementsCount = $this->mouvementsForDashboard($dashboard, $annee, $mois)->count();
-                $regionsWithData++;
+                $counts = $this->summaryCounts($this->mouvementsForDashboard($dashboard, $annee, $mois));
+
+                if ($counts['mouvements_count'] > 0) {
+                    $regionsWithData++;
+                }
 
                 $dashboardKpis = DashboardKpis::fromDashboard($dashboard);
                 $global['total_ordonnance'] += $dashboardKpis['total_ordonnance'];
@@ -48,13 +58,16 @@ class CentralAggregationService
                 $global['total_montant_paye'] += $dashboardKpis['total_montant_paye'];
                 $global['solde'] += $dashboardKpis['solde'];
                 $global['tresorerie_reelle'] += $dashboardKpis['tresorerie_reelle'];
+                $globalMandatsCount += $counts['mandats_count'];
+                $globalRecettesCount += $counts['recettes_count'];
+                $globalMouvementsCount += $counts['mouvements_count'];
 
                 if ($dashboard->updated_at && ($latestUpdate === null || $dashboard->updated_at->gt($latestUpdate))) {
                     $latestUpdate = $dashboard->updated_at;
                 }
             }
 
-            $regionRows[] = $this->buildRegionRow($region, $dashboard, $mouvementsCount);
+            $regionRows[] = $this->buildRegionRow($region, $dashboard, $counts);
         }
 
         return [
@@ -69,6 +82,9 @@ class CentralAggregationService
             'meta' => [
                 'regions_actives' => $regions->count(),
                 'regions_avec_donnees' => $regionsWithData,
+                'mandats_count' => $globalMandatsCount,
+                'recettes_count' => $globalRecettesCount,
+                'mouvements_count' => $globalMouvementsCount,
                 'derniere_mise_a_jour' => $latestUpdate?->toIso8601String(),
             ],
         ];
@@ -86,6 +102,9 @@ class CentralAggregationService
 
         $regionsWithData = 0;
         $latestUpdate = null;
+        $globalMandatsCount = 0;
+        $globalRecettesCount = 0;
+        $globalMouvementsCount = 0;
 
         foreach ($regions as $region) {
             $dashboardIds = Dashboard::query()
@@ -97,13 +116,13 @@ class CentralAggregationService
                 ->whereBetween('date_mouvement', [$dateDebut, $dateFin])
                 ->get();
 
-            $mouvementsCount = MandatCounter::dedupeRows($mouvements)->count();
+            $counts = $this->summaryCounts($mouvements);
             $latestDashboard = Dashboard::query()
                 ->where('region_id', $region->id)
                 ->orderByDesc('updated_at')
                 ->first();
 
-            if ($mouvementsCount > 0) {
+            if ($counts['mouvements_count'] > 0) {
                 $financial = MandatCounter::financialTotals($mouvements);
                 $recouvrements = $financial['total_recouvrements_4121'] > 0
                     ? $financial['total_recouvrements_4121']
@@ -120,6 +139,9 @@ class CentralAggregationService
                 $global['total_montant_paye'] += $regionKpis['total_montant_paye'];
                 $global['solde'] += $regionKpis['solde'];
                 $global['tresorerie_reelle'] += $regionKpis['tresorerie_reelle'];
+                $globalMandatsCount += $counts['mandats_count'];
+                $globalRecettesCount += $counts['recettes_count'];
+                $globalMouvementsCount += $counts['mouvements_count'];
 
                 if ($latestDashboard?->updated_at && ($latestUpdate === null || $latestDashboard->updated_at->gt($latestUpdate))) {
                     $latestUpdate = $latestDashboard->updated_at;
@@ -133,12 +155,14 @@ class CentralAggregationService
                     'kpis' => $regionKpis,
                     'meta' => [
                         'has_data' => true,
-                        'mouvements_count' => $mouvementsCount,
+                        'mouvements_count' => $counts['mouvements_count'],
+                        'mandats_count' => $counts['mandats_count'],
+                        'recettes_count' => $counts['recettes_count'],
                         'derniere_mise_a_jour' => $latestDashboard?->updated_at?->toIso8601String(),
                     ],
                 ];
             } else {
-                $regionRows[] = $this->buildRegionRow($region, null, 0);
+                $regionRows[] = $this->buildRegionRow($region, null, $counts);
             }
         }
 
@@ -154,6 +178,9 @@ class CentralAggregationService
             'meta' => [
                 'regions_actives' => $regions->count(),
                 'regions_avec_donnees' => $regionsWithData,
+                'mandats_count' => $globalMandatsCount,
+                'recettes_count' => $globalRecettesCount,
+                'mouvements_count' => $globalMouvementsCount,
                 'derniere_mise_a_jour' => $latestUpdate?->toIso8601String(),
             ],
         ];
@@ -172,7 +199,7 @@ class CentralAggregationService
     }
 
     /** @return array<string, mixed> */
-    private function buildRegionRow(Region $region, ?Dashboard $dashboard, int $mouvementsCount): array
+    private function buildRegionRow(Region $region, ?Dashboard $dashboard, array $counts): array
     {
         return [
             'region' => [
@@ -182,9 +209,26 @@ class CentralAggregationService
             'kpis' => $dashboard ? DashboardKpis::fromDashboard($dashboard) : DashboardKpis::empty(),
             'meta' => [
                 'has_data' => $dashboard !== null,
-                'mouvements_count' => $mouvementsCount,
+                'mouvements_count' => $counts['mouvements_count'],
+                'mandats_count' => $counts['mandats_count'],
+                'recettes_count' => $counts['recettes_count'],
                 'derniere_mise_a_jour' => $dashboard?->updated_at?->toIso8601String(),
             ],
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Mouvement>  $mouvements
+     * @return array{mouvements_count: int, mandats_count: int, recettes_count: int}
+     */
+    private function summaryCounts(Collection $mouvements): array
+    {
+        $rows = MandatCounter::dedupeRows($mouvements);
+
+        return [
+            'mouvements_count' => $rows->count(),
+            'mandats_count' => MandatCounter::navMandatLines($rows)->count(),
+            'recettes_count' => $rows->where('type', 'recette')->count(),
         ];
     }
 

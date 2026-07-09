@@ -37,7 +37,7 @@ class RecetteController extends Controller
         $rows = $this->service->exportRows($filters);
 
         return CsvExporter::download(
-            'recettes.csv',
+            'recettes-clients.csv',
             ['Date', 'N° client', 'Client', 'Compte GL', 'Description', 'Montant (FCFA)'],
             $rows->map(fn (array $r) => [
                 isset($r['date_posting']) ? date('d/m/Y', strtotime((string) $r['date_posting'])) : '',

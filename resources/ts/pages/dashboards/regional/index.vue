@@ -47,7 +47,9 @@ const heroStats = computed(() => {
   if (!summary.value)
     return []
   return [
-    { label: 'Mouvements', value: (summary.value.meta.mouvements_count ?? 0).toLocaleString('fr-FR') },
+    { label: 'Mandats', value: (summary.value.meta.mandats_count ?? 0).toLocaleString('fr-FR') },
+    { label: 'Recettes', value: (summary.value.meta.recettes_count ?? 0).toLocaleString('fr-FR') },
+    { label: 'Tous mouvements', value: (summary.value.meta.mouvements_count ?? 0).toLocaleString('fr-FR') },
     { label: 'Période', value: periodLabel.value },
   ]
 })
@@ -169,7 +171,7 @@ onMounted(async () => {
       class="mb-4"
       density="compact"
     >
-      Aucune donnée pour {{ regionLabel ?? 'cette région' }} entre le {{ periodLabel }}.
+      Aucune donnée mandatée ou recette pour {{ regionLabel ?? 'cette région' }} entre le {{ periodLabel }}.
       Élargissez la plage de dates si les données proviennent d'une autre période.
     </VAlert>
 
@@ -229,7 +231,7 @@ onMounted(async () => {
             v-else
             class="aice-panel-empty"
           >
-            Aucune donnée pour cette période.
+            Aucune répartition des mandats par statut sur cette période.
           </div>
         </DataPanel>
       </VCol>
@@ -252,7 +254,7 @@ onMounted(async () => {
             v-else
             class="aice-panel-empty"
           >
-            Aucune donnée pour cette période.
+            Aucun type de mandat disponible sur cette période.
           </div>
         </DataPanel>
       </VCol>

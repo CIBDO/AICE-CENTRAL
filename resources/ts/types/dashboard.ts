@@ -38,6 +38,8 @@ export interface DashboardSummary {
     regional_id: string | null
     derniere_mise_a_jour: string | null
     mouvements_count: number
+    mandats_count: number
+    recettes_count: number
   }
 }
 
@@ -60,6 +62,8 @@ export interface CentralRegionRow {
   meta: {
     has_data: boolean
     mouvements_count: number
+    mandats_count: number
+    recettes_count: number
     derniere_mise_a_jour: string | null
   }
 }
@@ -76,6 +80,9 @@ export interface CentralSummary {
   meta: {
     regions_actives: number
     regions_avec_donnees: number
+    mandats_count: number
+    recettes_count: number
+    mouvements_count: number
     derniere_mise_a_jour: string | null
   }
 }
@@ -128,6 +135,9 @@ export interface ExecutiveKpis {
   meta: {
     regions_actives: number
     regions_avec_donnees: number
+    mandats_count: number
+    recettes_count: number
+    mouvements_count: number
     derniere_mise_a_jour: string | null
   }
 }

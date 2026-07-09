@@ -48,8 +48,10 @@ class ProgrammeQueryService
             $this->baseQuery($filters, applyProgrammeFilter: false)->get()
         );
         $filteredRows = MandatCounter::dedupeRows($this->baseQuery($filters)->get());
-        $allMandats = MandatCounter::mandatsForStats($allRows);
-        $filteredMandats = MandatCounter::mandatsForStats($filteredRows);
+        // Alignement strict avec la source NAV: les compteurs Programmes utilisent
+        // les lignes comptables NAV (et non les mandats distincts dédupliqués).
+        $allMandats = MandatCounter::navMandatLines($allRows);
+        $filteredMandats = MandatCounter::navMandatLines($filteredRows);
         $financial = MandatCounter::financialTotals($filteredRows);
 
         $statut = fn (Mouvement $m): string => StatutNormalizer::normalize($m->statut, $m->statut_code) ?? '';

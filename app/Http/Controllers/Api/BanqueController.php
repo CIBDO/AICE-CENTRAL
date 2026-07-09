@@ -37,8 +37,8 @@ class BanqueController extends Controller
         $rows = $this->service->exportRows($filters);
 
         return CsvExporter::download(
-            'banques.csv',
-            ['Date', 'Compte', 'Libellé', 'Référence', 'Type', 'Débit (entrée)', 'Crédit (sortie)', 'Solde'],
+            'mouvements-bancaires.csv',
+            ['Date', 'Compte bancaire', 'Libellé', 'Référence', 'Type document', 'Débit (entrée)', 'Crédit (sortie)', 'Solde'],
             $rows->map(fn (array $b) => [
                 isset($b['date_mouvement']) ? date('d/m/Y', strtotime((string) $b['date_mouvement'])) : '',
                 $b['numero_compte'] ?? '',

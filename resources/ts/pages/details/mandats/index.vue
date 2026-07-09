@@ -248,7 +248,7 @@ const headers = [
     <ExplorerHero
       icon="tabler-file-invoice"
       title="Explorateur mandats"
-      subtitle="Analyse interactive des mouvements et mandats — filtres dynamiques, graphiques synchronisés."
+      subtitle="Analyse interactive des mandats. Les recettes sont consultées dans l'explorateur Recettes."
       :stats="heroStats"
     />
 
@@ -280,7 +280,7 @@ const headers = [
           v-model="search"
           density="compact"
           hide-details
-          placeholder="Rechercher libellé, bénéficiaire, n° mandat…"
+          placeholder="Rechercher un libellé, un bénéficiaire, un n° mandat…"
           prepend-inner-icon="tabler-search"
           style="min-inline-size: 260px; flex: 1;"
           clearable
@@ -350,7 +350,7 @@ const headers = [
         lg="5"
       >
         <DataPanel
-          title="Flux journalier"
+          title="Flux journalier des mandats"
           :subtitle="periodLabel"
         >
           <SparklineChart
@@ -364,7 +364,7 @@ const headers = [
             v-else
             class="aice-panel-empty"
           >
-            Aucune série temporelle.
+            Aucun flux journalier de mandats sur cette période.
           </div>
         </DataPanel>
       </VCol>
@@ -372,7 +372,7 @@ const headers = [
         cols="12"
         lg="3"
       >
-        <DataPanel title="Par statut">
+        <DataPanel title="Statuts des mandats">
           <ChartWidget
             v-if="statutChart.labels.length"
             type="doughnut"
@@ -388,7 +388,7 @@ const headers = [
       >
         <DataPanel
           title="Top programmes"
-          subtitle="Cliquer une barre pour filtrer"
+          subtitle="Cliquer une barre pour filtrer les mandats"
         >
           <div
             v-if="programmeChart.labels.length"
@@ -419,7 +419,7 @@ const headers = [
     </VRow>
 
     <DataPanel
-      :title="`Mouvements (${meta?.total ?? 0})`"
+      :title="`Mandats (${meta?.total ?? 0})`"
       subtitle="Cliquez une ligne pour ouvrir la fiche mandat"
     >
       <VDataTable
@@ -433,6 +433,7 @@ const headers = [
         class="aice-data-table aice-data-table--clickable"
         :items-per-page="-1"
         hide-default-footer
+        no-data-text="Aucun mandat trouvé pour les filtres sélectionnés."
         @click:row="(_ev: Event, ctx: { item: MouvementRow }) => openMandat(ctx.item)"
       >
         <template #item.date_mouvement="{ item }">

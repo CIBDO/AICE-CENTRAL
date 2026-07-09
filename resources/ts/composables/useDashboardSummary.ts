@@ -41,7 +41,7 @@ export function useDashboardSummary() {
     }
     catch (e) {
       if (!silent) {
-        error.value = e instanceof Error ? e.message : 'Impossible de charger le tableau de bord.'
+        error.value = e instanceof Error ? e.message : 'Impossible de charger le tableau de bord régional.'
         summary.value = null
       }
     }

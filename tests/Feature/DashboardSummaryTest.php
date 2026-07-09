@@ -100,6 +100,8 @@ class DashboardSummaryTest extends TestCase
         $response->assertJsonPath('data.kpis.total_ordonnance', 200);
         $response->assertJsonPath('data.kpis.solde', 300);
         $response->assertJsonPath('data.meta.mouvements_count', 2);
+        $response->assertJsonPath('data.meta.mandats_count', 1);
+        $response->assertJsonPath('data.meta.recettes_count', 1);
     }
 
     public function test_summary_counts_mandats_par_type_as_nav_lignes(): void
@@ -177,5 +179,7 @@ class DashboardSummaryTest extends TestCase
         $response->assertJsonPath('data.mandats_par_type.0.count', 4);
         $response->assertJsonPath('data.mandats_par_type.1.count', 1);
         $response->assertJsonPath('data.mandats_par_type.2.count', 0);
+        $response->assertJsonPath('data.meta.mandats_count', 5);
+        $response->assertJsonPath('data.meta.recettes_count', 4);
     }
 }

@@ -37,7 +37,7 @@ class NatureCeController extends Controller
         $rows = $this->service->exportRows($filters);
 
         return CsvExporter::download(
-            'natures-ce-mandats.csv',
+            'mandats-par-nature-ce.csv',
             ['Date', 'Nature CE', 'Chapitre', 'Libellé', 'Statut', 'Bénéficiaire', 'N° mandat', 'Montant (FCFA)'],
             $rows->map(fn ($m) => [
                 $m->date_mouvement?->format('d/m/Y') ?? '',

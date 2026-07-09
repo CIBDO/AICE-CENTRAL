@@ -232,7 +232,7 @@ const headers = [
     <ExplorerHero
       icon="tabler-layout-grid"
       title="Explorateur programmes"
-      subtitle="Vue agrégée par programme — sélection, exécution budgétaire et drill-down mandats."
+      subtitle="Vue agrégée des mandats par programme. Les recettes sont consultées dans l'explorateur Recettes."
       :stats="heroStats"
     />
 
@@ -264,7 +264,7 @@ const headers = [
           v-model="search"
           density="compact"
           hide-details
-          placeholder="Programme, chapitre, libellé…"
+          placeholder="Rechercher un programme, un chapitre, un libellé…"
           prepend-inner-icon="tabler-search"
           style="min-inline-size: 220px; flex: 1;"
           clearable
@@ -282,7 +282,7 @@ const headers = [
         </VBtn>
         <ExportButton
           path="/v1/programmes/export"
-          filename="programmes-mandats.csv"
+          filename="mandats-par-programme.csv"
           :query="exportQuery"
         />
       </div>
@@ -327,8 +327,8 @@ const headers = [
 
     <DataPanel
       v-if="stats?.programmes.length"
-      title="Programmes"
-      :subtitle="programmeFilter ? `Filtre : ${programmeFilter}` : 'Cliquez une carte pour filtrer les mandats'"
+      title="Programmes budgétaires"
+      :subtitle="programmeFilter ? `Programme filtré : ${programmeFilter}` : 'Cliquez une carte pour filtrer les mandats de ce programme'"
       class="mb-4"
     >
       <VRow>
@@ -397,7 +397,7 @@ const headers = [
         lg="4"
       >
         <DataPanel
-          title="Exécution journalière"
+          title="Flux journalier des mandats"
           :subtitle="periodLabel"
         >
           <SparklineChart
@@ -407,13 +407,19 @@ const headers = [
             label="Montant"
             :height="200"
           />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucun flux journalier de mandats par programme sur cette période.
+          </div>
         </DataPanel>
       </VCol>
       <VCol
         cols="12"
         lg="4"
       >
-        <DataPanel title="Par statut">
+        <DataPanel title="Statuts des mandats">
           <ChartWidget
             v-if="statutChart.labels.length"
             type="doughnut"
@@ -421,6 +427,12 @@ const headers = [
             :datasets="statutChart.datasets"
             :height="200"
           />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucun statut de mandat disponible sur cette période.
+          </div>
         </DataPanel>
       </VCol>
       <VCol
@@ -428,7 +440,7 @@ const headers = [
         lg="4"
       >
         <DataPanel
-          title="Par type mandat"
+          title="Types de mandats"
           subtitle="Matériel · Salaire · Reversement"
         >
           <ChartWidget
@@ -438,6 +450,12 @@ const headers = [
             :datasets="typeMandatChart.datasets"
             :height="200"
           />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucun type de mandat disponible sur cette période.
+          </div>
         </DataPanel>
       </VCol>
     </VRow>
@@ -448,8 +466,8 @@ const headers = [
     >
       <VCol cols="12">
         <DataPanel
-          title="Répartition par chapitre"
-          subtitle="Cliquer un chapitre pour filtrer"
+          title="Répartition des mandats par chapitre"
+          subtitle="Cliquer un chapitre pour filtrer les mandats"
         >
           <div class="d-flex flex-wrap gap-2 mb-3">
             <VChip
@@ -485,6 +503,7 @@ const headers = [
         class="aice-data-table aice-data-table--clickable"
         :items-per-page="-1"
         hide-default-footer
+        no-data-text="Aucun mandat trouvé pour les filtres sélectionnés."
         @click:row="(_ev: Event, ctx: { item: MouvementRow }) => openMandat(ctx.item)"
       >
         <template #item.date_mouvement="{ item }">
@@ -557,5 +576,12 @@ const headers = [
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.aice-panel-empty {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.8125rem;
+  padding-block: 2rem;
+  text-align: center;
 }
 </style>

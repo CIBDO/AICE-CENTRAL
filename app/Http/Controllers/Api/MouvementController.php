@@ -71,10 +71,10 @@ class MouvementController extends Controller
 
         return CsvExporter::download(
             'mandats.csv',
-            ['Date', 'Type', 'Libellé', 'Statut', 'Programme', 'Bénéficiaire', 'N° mandat', 'Nature CE', 'Montant (FCFA)'],
+            ['Date', 'Type de mandat', 'Libellé', 'Statut', 'Code programme', 'Bénéficiaire', 'N° mandat', 'Nature CE', 'Montant (FCFA)'],
             $rows->map(fn ($m) => [
                 $m->date_mouvement?->format('d/m/Y') ?? '',
-                $m->type ?? '',
+                $m->type_mandat_libelle ?? $m->type_mandat ?? '',
                 $m->libelle ?? '',
                 $m->statut ?? '',
                 $m->code_programme ?? '',

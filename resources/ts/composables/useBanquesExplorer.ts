@@ -49,7 +49,7 @@ export function useBanquesExplorer() {
       meta.value = response.meta
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : 'Impossible de charger les opérations bancaires.'
+      error.value = e instanceof Error ? e.message : 'Impossible de charger les mouvements bancaires.'
       items.value = []
       stats.value = null
     }

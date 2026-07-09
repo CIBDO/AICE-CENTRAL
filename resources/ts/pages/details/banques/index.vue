@@ -43,14 +43,14 @@ const heroStats = computed(() => {
   const t = stats.value?.totaux
   if (!t) {
     return [
-      { label: 'Opérations', value: '—' },
+      { label: 'Mouvements bancaires', value: '—' },
       { label: 'Flux net', value: '—' },
       { label: 'Période', value: periodLabel.value },
     ]
   }
 
   return [
-    { label: 'Opérations', value: t.count.toLocaleString('fr-FR') },
+    { label: 'Mouvements bancaires', value: t.count.toLocaleString('fr-FR') },
     { label: 'Flux net', value: formatFcfa(t.flux_net) },
     { label: 'Période', value: periodLabel.value },
   ]
@@ -68,7 +68,7 @@ const kpiCards = computed(() => {
       { key: 'debit', label: 'Entrées (débit)', value: '—', accent: 'recettes' as const, icon: 'tabler-arrow-down-left' },
       { key: 'credit', label: 'Sorties (crédit)', value: '—', accent: 'depenses' as const, icon: 'tabler-arrow-up-right' },
       { key: 'net', label: 'Flux net', value: '—', accent: 'solde' as const, icon: 'tabler-arrows-exchange' },
-      { key: 'ops', label: 'Opérations', value: '—', accent: 'neutral' as const, icon: 'tabler-list-numbers' },
+      { key: 'ops', label: 'Mouvements bancaires', value: '—', accent: 'neutral' as const, icon: 'tabler-list-numbers' },
     ]
   }
 
@@ -76,7 +76,7 @@ const kpiCards = computed(() => {
     { key: 'debit', label: 'Entrées (débit)', value: formatFcfa(t.total_debit), accent: 'recettes' as const, icon: 'tabler-arrow-down-left' },
     { key: 'credit', label: 'Sorties (crédit)', value: formatFcfa(t.total_credit), accent: 'depenses' as const, icon: 'tabler-arrow-up-right' },
     { key: 'net', label: 'Flux net', value: formatFcfa(t.flux_net), accent: 'solde' as const, icon: 'tabler-arrows-exchange' },
-    { key: 'ops', label: 'Opérations', value: t.count.toLocaleString('fr-FR'), accent: 'neutral' as const, icon: 'tabler-list-numbers' },
+    { key: 'ops', label: 'Mouvements bancaires', value: t.count.toLocaleString('fr-FR'), accent: 'neutral' as const, icon: 'tabler-list-numbers' },
   ]
 })
 
@@ -168,8 +168,8 @@ const headers = [
   <div class="aice-page aice-explorer">
     <ExplorerHero
       icon="tabler-building-bank"
-      title="Explorateur trésorerie"
-      subtitle="Mouvements bancaires — convention État : débit = entrée, crédit = sortie."
+      title="Explorateur banques"
+      subtitle="Analyse des mouvements bancaires. Les mandats et recettes sont consultés dans leurs explorateurs dédiés."
       :stats="heroStats"
     />
 
@@ -201,7 +201,7 @@ const headers = [
           v-model="search"
           density="compact"
           hide-details
-          placeholder="Compte, référence, libellé…"
+          placeholder="Rechercher un compte, une référence, un libellé…"
           prepend-inner-icon="tabler-search"
           style="min-inline-size: 240px; flex: 1;"
           clearable
@@ -219,7 +219,7 @@ const headers = [
         </VBtn>
         <ExportButton
           path="/v1/banques/export"
-          filename="banques.csv"
+          filename="mouvements-bancaires.csv"
           :query="exportQuery"
         />
       </div>
@@ -282,6 +282,12 @@ const headers = [
             :datasets="fluxChart.datasets"
             :height="260"
           />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucun mouvement bancaire sur cette période.
+          </div>
         </DataPanel>
       </VCol>
       <VCol
@@ -296,6 +302,12 @@ const headers = [
             label="Flux net"
             :height="260"
           />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucun flux net bancaire sur cette période.
+          </div>
         </DataPanel>
       </VCol>
     </VRow>
@@ -306,8 +318,8 @@ const headers = [
     >
       <VCol cols="12">
         <DataPanel
-          title="Comptes"
-          subtitle="Cliquer pour filtrer les opérations"
+          title="Comptes bancaires"
+          subtitle="Cliquer pour filtrer les mouvements bancaires"
         >
           <div class="aice-comptes-grid">
             <VCard
@@ -363,7 +375,7 @@ const headers = [
       </VCol>
     </VRow>
 
-    <DataPanel :title="`Opérations (${meta?.total ?? 0})`">
+    <DataPanel :title="`Mouvements bancaires (${meta?.total ?? 0})`">
       <VDataTable
         :headers="headers"
         :items="items"
@@ -372,6 +384,7 @@ const headers = [
         class="aice-data-table"
         :items-per-page="-1"
         hide-default-footer
+        no-data-text="Aucun mouvement bancaire trouvé pour les filtres sélectionnés."
       >
         <template #item.date_mouvement="{ item }">
           <span class="tabular-nums">{{ formatDateOnly(item.date_mouvement) }}</span>
@@ -456,5 +469,12 @@ const headers = [
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.aice-panel-empty {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.8125rem;
+  padding-block: 2rem;
+  text-align: center;
 }
 </style>

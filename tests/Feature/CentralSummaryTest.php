@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Dashboard;
+use App\Models\Mouvement;
 use App\Models\Region;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -36,7 +36,7 @@ class CentralSummaryTest extends TestCase
             'ordre' => 2,
         ]);
 
-        Dashboard::create([
+        $dashboardRgf = Dashboard::create([
             'region_id' => $rgf->id,
             'local_id' => 'RGF',
             'regional_id' => 'D1',
@@ -49,7 +49,7 @@ class CentralSummaryTest extends TestCase
             'mois' => 6,
         ]);
 
-        Dashboard::create([
+        $dashboardRgd = Dashboard::create([
             'region_id' => $rgd->id,
             'local_id' => 'RGD',
             'regional_id' => 'D2',
@@ -62,12 +62,49 @@ class CentralSummaryTest extends TestCase
             'mois' => 6,
         ]);
 
+        Mouvement::create([
+            'dashboard_id' => $dashboardRgf->id,
+            'regional_id' => 'RGF-M1',
+            'libelle' => 'Mandat RGF',
+            'montant' => 100,
+            'type' => 'depense',
+            'type_mandat' => '0',
+            'annee' => 2024,
+            'mois' => 6,
+            'statut' => 'Payé',
+        ]);
+
+        Mouvement::create([
+            'dashboard_id' => $dashboardRgf->id,
+            'regional_id' => 'RGF-R1',
+            'libelle' => 'Recette RGF',
+            'montant' => 50,
+            'type' => 'recette',
+            'annee' => 2024,
+            'mois' => 6,
+        ]);
+
+        Mouvement::create([
+            'dashboard_id' => $dashboardRgd->id,
+            'regional_id' => 'RGD-M1',
+            'libelle' => 'Mandat RGD',
+            'montant' => 200,
+            'type' => 'depense',
+            'type_mandat' => '1',
+            'annee' => 2024,
+            'mois' => 6,
+            'statut' => 'Admis',
+        ]);
+
         $response = $this->getJson('/api/v1/central/summary?annee=2024&mois=6');
 
         $response->assertOk();
         $response->assertJsonPath('data.global.total_recouvrements_4121', 3000);
         $response->assertJsonPath('data.global.total_ordonnance', 1200);
         $response->assertJsonPath('data.meta.regions_avec_donnees', 2);
+        $response->assertJsonPath('data.meta.mandats_count', 2);
+        $response->assertJsonPath('data.meta.recettes_count', 1);
+        $response->assertJsonPath('data.meta.mouvements_count', 3);
         $response->assertJsonCount(2, 'data.regions');
     }
 }

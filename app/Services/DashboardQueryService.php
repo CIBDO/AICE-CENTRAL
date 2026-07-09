@@ -110,12 +110,12 @@ class DashboardQueryService
             'kpis' => $kpis,
             'mandats_par_type' => $this->mandatsParType($mouvements),
             'statuts_mandats' => $this->statutsMandats($mouvements),
-            'meta' => [
-                'dashboard_id' => $latestDashboard?->id,
-                'regional_id' => $latestDashboard?->regional_id,
-                'derniere_mise_a_jour' => $latestDashboard?->updated_at?->toIso8601String(),
-                'mouvements_count' => MandatCounter::dedupeRows($mouvements)->count(),
-            ],
+            'meta' => $this->summaryMeta(
+                $mouvements,
+                $latestDashboard?->id,
+                $latestDashboard?->regional_id,
+                $latestDashboard?->updated_at?->toIso8601String(),
+            ),
         ];
     }
 
@@ -168,12 +168,12 @@ class DashboardQueryService
             'kpis' => $kpis,
             'mandats_par_type' => $this->mandatsParType($mouvements),
             'statuts_mandats' => $this->statutsMandats($mouvements),
-            'meta' => [
-                'dashboard_id' => $dashboard->id,
-                'regional_id' => $dashboard->regional_id,
-                'derniere_mise_a_jour' => $dashboard->updated_at?->toIso8601String(),
-                'mouvements_count' => MandatCounter::dedupeRows($mouvements)->count(),
-            ],
+            'meta' => $this->summaryMeta(
+                $mouvements,
+                $dashboard->id,
+                $dashboard->regional_id,
+                $dashboard->updated_at?->toIso8601String(),
+            ),
         ];
     }
 
@@ -283,7 +283,30 @@ class DashboardQueryService
                 'regional_id' => null,
                 'derniere_mise_a_jour' => null,
                 'mouvements_count' => 0,
+                'mandats_count' => 0,
+                'recettes_count' => 0,
             ],
+        ];
+    }
+
+    /**
+     * @return array{dashboard_id: int|null, regional_id: string|null, derniere_mise_a_jour: string|null, mouvements_count: int, mandats_count: int, recettes_count: int}
+     */
+    private function summaryMeta(
+        Collection $mouvements,
+        ?int $dashboardId,
+        ?string $regionalId,
+        ?string $updatedAt,
+    ): array {
+        $rows = MandatCounter::dedupeRows($mouvements);
+
+        return [
+            'dashboard_id' => $dashboardId,
+            'regional_id' => $regionalId,
+            'derniere_mise_a_jour' => $updatedAt,
+            'mouvements_count' => $rows->count(),
+            'mandats_count' => MandatCounter::navMandatLines($rows)->count(),
+            'recettes_count' => $rows->where('type', 'recette')->count(),
         ];
     }
 }

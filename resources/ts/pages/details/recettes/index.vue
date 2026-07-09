@@ -45,15 +45,15 @@ const heroStats = computed(() => {
   const t = stats.value?.totaux
   if (!t) {
     return [
-      { label: 'Opérations', value: '—' },
-      { label: 'Total recettes', value: '—' },
+      { label: 'Recettes', value: '—' },
+      { label: 'Montant recettes', value: '—' },
       { label: 'Période', value: periodLabel.value },
     ]
   }
 
   return [
-    { label: 'Opérations', value: t.count.toLocaleString('fr-FR') },
-    { label: 'Total recettes', value: formatFcfa(t.montant_total) },
+    { label: 'Recettes', value: t.count.toLocaleString('fr-FR') },
+    { label: 'Montant recettes', value: formatFcfa(t.montant_total) },
     { label: 'Période', value: periodLabel.value },
   ]
 })
@@ -155,7 +155,7 @@ const headers = [
     <ExplorerHero
       icon="tabler-cash"
       title="Explorateur recettes"
-      subtitle="Recettes clients — classement, tendances et filtrage par client."
+      subtitle="Analyse des recettes clients. Les mandats sont consultés dans l'explorateur Mandats."
       :stats="heroStats"
     />
 
@@ -187,7 +187,7 @@ const headers = [
           v-model="search"
           density="compact"
           hide-details
-          placeholder="Client, description, compte GL…"
+          placeholder="Rechercher un client, une description, un compte GL…"
           prepend-inner-icon="tabler-search"
           style="min-inline-size: 240px; flex: 1;"
           clearable
@@ -205,7 +205,7 @@ const headers = [
         </VBtn>
         <ExportButton
           path="/v1/recettes/export"
-          filename="recettes.csv"
+          filename="recettes-clients.csv"
           :query="exportQuery"
         />
       </div>
@@ -256,6 +256,12 @@ const headers = [
             :data="sparkline.data"
             :height="240"
           />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucun encaissement journalier sur cette période.
+          </div>
         </DataPanel>
       </VCol>
       <VCol
@@ -264,7 +270,7 @@ const headers = [
       >
         <DataPanel
           title="Top clients"
-          subtitle="Cliquer pour filtrer le tableau"
+          subtitle="Cliquer pour filtrer les recettes"
         >
           <ChartWidget
             v-if="clientsChart.labels.length"
@@ -273,6 +279,12 @@ const headers = [
             :datasets="clientsChart.datasets"
             :height="200"
           />
+          <div
+            v-else
+            class="aice-panel-empty"
+          >
+            Aucun client avec recettes sur cette période.
+          </div>
           <div class="aice-client-tags mt-3">
             <VChip
               v-for="client in stats.top_clients"
@@ -300,7 +312,7 @@ const headers = [
       </VCol>
     </VRow>
 
-    <DataPanel :title="`Opérations (${meta?.total ?? 0})`">
+    <DataPanel :title="`Recettes (${meta?.total ?? 0})`">
       <VDataTable
         :headers="headers"
         :items="items"
@@ -309,6 +321,7 @@ const headers = [
         class="aice-data-table"
         :items-per-page="-1"
         hide-default-footer
+        no-data-text="Aucune recette trouvée pour les filtres sélectionnés."
       >
         <template #item.date_posting="{ item }">
           <span class="tabular-nums">{{ formatDateOnly(item.date_posting) }}</span>
@@ -342,5 +355,12 @@ const headers = [
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.aice-panel-empty {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.8125rem;
+  padding-block: 2rem;
+  text-align: center;
 }
 </style>

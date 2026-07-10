@@ -12,6 +12,10 @@ use Illuminate\Support\Collection;
 
 class DashboardQueryService
 {
+    public function __construct(private readonly BanqueQueryService $banqueQueryService)
+    {
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -57,6 +61,11 @@ class DashboardQueryService
         $dashboardIds = Dashboard::query()
             ->where('region_id', $region->id)
             ->pluck('id');
+        $bankBalance = $this->bankBalance([
+            'region_code' => $region->code,
+            'date_debut' => $dateDebut,
+            'date_fin' => $dateFin,
+        ]);
 
         $annee = (int) substr($dateDebut, 0, 4);
         $isFullYear = $dateDebut === "{$annee}-01-01" && $dateFin === "{$annee}-12-31";
@@ -77,7 +86,7 @@ class DashboardQueryService
             ->get();
 
         if ($mouvements->isEmpty()) {
-            return $this->emptySummary($region, $dateDebut, $dateFin);
+            return $this->emptySummary($region, $dateDebut, $dateFin, $bankBalance);
         }
 
         $financial = MandatCounter::financialTotals($mouvements);
@@ -94,7 +103,7 @@ class DashboardQueryService
             'total_ordonnance' => $financial['total_ordonnance'],
             'total_recouvrements_4121' => $recouvrements,
             'total_montant_paye' => $financial['total_montant_paye'],
-        ], $latestDashboard ? (float) $latestDashboard->tresorerie_reelle : 0.0);
+        ], $bankBalance);
 
         return [
             'region' => [
@@ -108,6 +117,7 @@ class DashboardQueryService
                 'date_fin' => $dateFin,
             ],
             'kpis' => $kpis,
+            'workflow' => MandatCounter::workflowBacklog($mouvements),
             'mandats_par_type' => $this->mandatsParType($mouvements),
             'statuts_mandats' => $this->statutsMandats($mouvements),
             'meta' => $this->summaryMeta(
@@ -148,6 +158,13 @@ class DashboardQueryService
      */
     private function buildSummary(Region $region, Dashboard $dashboard, Collection $mouvements, array $periode): array
     {
+        $bankBalance = $this->bankBalance([
+            'region_code' => $region->code,
+            'annee' => $periode['annee'],
+            'mois' => $periode['mois'],
+            'date_debut' => $periode['date_debut'],
+            'date_fin' => $periode['date_fin'],
+        ]);
         $financial = MandatCounter::financialTotals($mouvements);
         $recouvrements = $financial['total_recouvrements_4121'] > 0
             ? $financial['total_recouvrements_4121']
@@ -157,7 +174,7 @@ class DashboardQueryService
             'total_ordonnance' => $financial['total_ordonnance'],
             'total_recouvrements_4121' => $recouvrements,
             'total_montant_paye' => $financial['total_montant_paye'],
-        ], (float) $dashboard->tresorerie_reelle);
+        ], $bankBalance);
 
         return [
             'region' => [
@@ -166,6 +183,7 @@ class DashboardQueryService
             ],
             'periode' => $periode,
             'kpis' => $kpis,
+            'workflow' => MandatCounter::workflowBacklog($mouvements),
             'mandats_par_type' => $this->mandatsParType($mouvements),
             'statuts_mandats' => $this->statutsMandats($mouvements),
             'meta' => $this->summaryMeta(
@@ -263,7 +281,11 @@ class DashboardQueryService
         Region $region,
         ?string $dateDebut = null,
         ?string $dateFin = null,
+        float $bankBalance = 0.0,
     ): array {
+        $kpis = DashboardKpis::empty();
+        $kpis['tresorerie_reelle'] = $bankBalance;
+
         return [
             'region' => [
                 'code' => $region->code,
@@ -275,7 +297,12 @@ class DashboardQueryService
                 'date_debut' => $dateDebut,
                 'date_fin' => $dateFin,
             ],
-            'kpis' => DashboardKpis::empty(),
+            'kpis' => $kpis,
+            'workflow' => [
+                'admis' => ['count' => 0, 'montant' => 0.0],
+                'autres_non_payes' => ['count' => 0, 'montant' => 0.0],
+                'total_hors_rejet' => ['count' => 0, 'montant' => 0.0],
+            ],
             'mandats_par_type' => [],
             'statuts_mandats' => [],
             'meta' => [
@@ -287,6 +314,15 @@ class DashboardQueryService
                 'recettes_count' => 0,
             ],
         ];
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function bankBalance(array $filters): float
+    {
+        return $this->banqueQueryService->filteredBalance(array_filter(
+            $filters,
+            fn (mixed $value) => $value !== null && $value !== ''
+        ));
     }
 
     /**

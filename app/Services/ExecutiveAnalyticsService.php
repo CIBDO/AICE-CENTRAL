@@ -11,6 +11,12 @@ use Illuminate\Support\Collection;
 
 class ExecutiveAnalyticsService
 {
+    private const DEFAULT_COMPARE_MODE = 'mois_precedent';
+
+    private const DEFAULT_SLA_WARNING_DAYS = 7;
+
+    private const DEFAULT_SLA_CRITICAL_DAYS = 15;
+
     private const SEUIL_REJET_WARNING = 15;
 
     private const SEUIL_REJET_CRITIQUE = 20;
@@ -28,15 +34,26 @@ class ExecutiveAnalyticsService
         ?string $dateDebut = null,
         ?string $dateFin = null,
         ?string $regionCode = null,
+        ?string $compareMode = null,
+        ?int $slaWarningDays = null,
+        ?int $slaCriticalDays = null,
     ): array {
+        $config = $this->config($compareMode, $slaWarningDays, $slaCriticalDays);
+
         if ($dateDebut !== null) {
             $dateFin = $dateFin ?? $dateDebut;
             $mouvements = $this->mouvementsForDateRange($dateDebut, $dateFin, $regionCode);
             $central = app(CentralAggregationService::class)->summary(null, null, $dateDebut, $dateFin, $regionCode);
-            $prev = $this->previousDateRange($dateDebut, $dateFin);
+            $prev = $this->comparisonDateRange($dateDebut, $dateFin, $config['compare_mode']);
             $prevMouvements = $this->mouvementsForDateRange($prev['debut'], $prev['fin'], $regionCode);
             $stats = $this->computeMouvementStats($mouvements);
             $prevStats = $this->computeMouvementStats($prevMouvements);
+            $workflowAging = $this->workflowAging(
+                $mouvements,
+                $this->referenceDateForDateRange($dateFin),
+                $config['sla_warning_days'],
+                $config['sla_critical_days'],
+            );
 
             return [
                 'periode' => [
@@ -57,7 +74,12 @@ class ExecutiveAnalyticsService
                     'montant_paye_total' => $central['global']['total_montant_paye'],
                     'solde_total' => $central['global']['solde'],
                 ],
-                'comparaison_mois_precedent' => [
+                'parametres' => $config,
+                'workflow' => MandatCounter::workflowBacklog($mouvements),
+                'workflow_aging' => $workflowAging,
+                'comparaison_reference' => [
+                    'mode' => $config['compare_mode'],
+                    'label' => $config['compare_label'],
                     'ordonnance_evolution_pct' => $this->evolutionPercent($stats['ordonnance_montant'], $prevStats['ordonnance_montant']),
                     'recouvrements_evolution_pct' => $this->evolutionPercent($stats['recouvrements_montant'], $prevStats['recouvrements_montant']),
                     'mandats_evolution_pct' => $this->evolutionPercent($stats['mandats_total'], $prevStats['mandats_total']),
@@ -75,6 +97,12 @@ class ExecutiveAnalyticsService
         $prev = $this->previousPeriod($annee, $mois);
         $prevMouvements = $this->mouvementsForPeriod($prev['annee'], $prev['mois'], $regionCode);
         $prevStats = $this->computeMouvementStats($prevMouvements);
+        $workflowAging = $this->workflowAging(
+            $mouvements,
+            $this->referenceDateForMonth($annee, $mois),
+            $config['sla_warning_days'],
+            $config['sla_critical_days'],
+        );
 
         $ordonnanceEvolution = $this->evolutionPercent($stats['ordonnance_montant'], $prevStats['ordonnance_montant']);
         $recouvrementsEvolution = $this->evolutionPercent($stats['recouvrements_montant'], $prevStats['recouvrements_montant']);
@@ -93,7 +121,12 @@ class ExecutiveAnalyticsService
                 'montant_paye_total' => $central['global']['total_montant_paye'],
                 'solde_total' => $central['global']['solde'],
             ],
-            'comparaison_mois_precedent' => [
+            'parametres' => $config,
+            'workflow' => MandatCounter::workflowBacklog($mouvements),
+            'workflow_aging' => $workflowAging,
+            'comparaison_reference' => [
+                'mode' => $config['compare_mode'],
+                'label' => $config['compare_label'],
                 'ordonnance_evolution_pct' => $ordonnanceEvolution,
                 'recouvrements_evolution_pct' => $recouvrementsEvolution,
                 'mandats_evolution_pct' => $this->evolutionPercent($stats['mandats_total'], $prevStats['mandats_total']),
@@ -112,7 +145,11 @@ class ExecutiveAnalyticsService
         ?string $dateDebut = null,
         ?string $dateFin = null,
         ?string $regionCode = null,
+        ?string $compareMode = null,
+        ?int $slaWarningDays = null,
+        ?int $slaCriticalDays = null,
     ): array {
+        $config = $this->config($compareMode, $slaWarningDays, $slaCriticalDays);
         $useDateRange = $dateDebut !== null;
 
         if ($useDateRange) {
@@ -120,13 +157,21 @@ class ExecutiveAnalyticsService
             $mouvements = $this->mouvementsForDateRange($dateDebut, $dateFin, $regionCode);
             $annee = (int) substr($dateDebut, 0, 4);
             $mois = null;
+            $referenceDate = $this->referenceDateForDateRange($dateFin);
         } else {
             [$annee, $mois] = $this->resolvePeriod($annee, $mois);
             $mouvements = $this->mouvementsForPeriod($annee, $mois, $regionCode);
+            $referenceDate = $this->referenceDateForMonth($annee, $mois);
         }
 
         $alertes = [];
         $stats = $this->computeMouvementStats($mouvements);
+        $workflowAging = $this->workflowAging(
+            $mouvements,
+            $referenceDate,
+            $config['sla_warning_days'],
+            $config['sla_critical_days'],
+        );
 
         if ($stats['mandats_total'] > 0 && $stats['taux_rejet'] >= self::SEUIL_REJET_CRITIQUE) {
             $alertes[] = $this->alert(
@@ -156,6 +201,34 @@ class ExecutiveAnalyticsService
                 'Volume élevé de mandats en attente',
                 sprintf('%d mandats admis en attente de traitement.', $stats['mandats_admis']),
                 'Accélérer le traitement ou identifier les goulots d\'étranglement.',
+            );
+        }
+
+        if ($workflowAging['count'] > 0 && $workflowAging['max_days'] > $config['sla_critical_days']) {
+            $alertes[] = $this->alert(
+                'sla_workflow_critique',
+                'critique',
+                'workflow',
+                'SLA workflow critique',
+                sprintf(
+                    'Des mandats en cours atteignent %d jours (seuil critique > %d jours).',
+                    $workflowAging['max_days'],
+                    $config['sla_critical_days'],
+                ),
+                'Prioriser les dossiers les plus anciens et traiter les blocages workflow.',
+            );
+        } elseif ($workflowAging['count'] > 0 && $workflowAging['max_days'] > $config['sla_warning_days']) {
+            $alertes[] = $this->alert(
+                'sla_workflow_warning',
+                'warning',
+                'workflow',
+                'SLA workflow en vigilance',
+                sprintf(
+                    'Les mandats en cours atteignent %d jours (seuil warning > %d jours).',
+                    $workflowAging['max_days'],
+                    $config['sla_warning_days'],
+                ),
+                'Surveiller les encours et anticiper les retards avant le seuil critique.',
             );
         }
 
@@ -202,6 +275,9 @@ class ExecutiveAnalyticsService
         ?string $dateDebut = null,
         ?string $dateFin = null,
         ?string $regionCode = null,
+        ?string $compareMode = null,
+        ?int $slaWarningDays = null,
+        ?int $slaCriticalDays = null,
     ): array {
         if ($dateDebut !== null) {
             $dateFin = $dateFin ?? $dateDebut;
@@ -263,12 +339,16 @@ class ExecutiveAnalyticsService
         ?string $dateDebut = null,
         ?string $dateFin = null,
         ?string $regionCode = null,
+        ?string $compareMode = null,
+        ?int $slaWarningDays = null,
+        ?int $slaCriticalDays = null,
     ): array {
+        $config = $this->config($compareMode, $slaWarningDays, $slaCriticalDays);
         if ($dateDebut !== null) {
             $dateFin = $dateFin ?? $dateDebut;
             $mouvements = $this->mouvementsForDateRange($dateDebut, $dateFin, $regionCode);
             $stats = $this->computeMouvementStats($mouvements);
-            $prev = $this->previousDateRange($dateDebut, $dateFin);
+            $prev = $this->comparisonDateRange($dateDebut, $dateFin, $config['compare_mode']);
             $prevStats = $this->computeMouvementStats($this->mouvementsForDateRange($prev['debut'], $prev['fin'], $regionCode));
             $depensesEvolution = $this->evolutionPercent($stats['ordonnance_montant'], $prevStats['ordonnance_montant']);
 
@@ -293,11 +373,12 @@ class ExecutiveAnalyticsService
                     'type' => $tendance,
                     'evolution_pct' => $depensesEvolution,
                     'description' => match ($tendance) {
-                        'hausse' => 'Les dépenses progressent par rapport à la période précédente.',
-                        'baisse' => 'Les dépenses reculent par rapport à la période précédente.',
-                        default => 'Les dépenses sont stables par rapport à la période précédente.',
+                        'hausse' => sprintf('Les dépenses progressent par rapport au %s.', $config['compare_label']),
+                        'baisse' => sprintf('Les dépenses reculent par rapport au %s.', $config['compare_label']),
+                        default => sprintf('Les dépenses sont stables par rapport au %s.', $config['compare_label']),
                     },
                 ],
+                'reference_label' => $config['compare_label'],
                 'projection_depenses_fin_mois' => round($projection, 2),
                 'depenses_mois_courant' => $stats['ordonnance_montant'],
             ];
@@ -332,11 +413,12 @@ class ExecutiveAnalyticsService
                 'type' => $tendance,
                 'evolution_pct' => $depensesEvolution,
                 'description' => match ($tendance) {
-                    'hausse' => 'Les dépenses progressent par rapport au mois précédent.',
-                    'baisse' => 'Les dépenses reculent par rapport au mois précédent.',
-                    default => 'Les dépenses sont stables par rapport au mois précédent.',
+                    'hausse' => sprintf('Les dépenses progressent par rapport au %s.', $config['compare_label']),
+                    'baisse' => sprintf('Les dépenses reculent par rapport au %s.', $config['compare_label']),
+                    default => sprintf('Les dépenses sont stables par rapport au %s.', $config['compare_label']),
                 },
             ],
+            'reference_label' => $config['compare_label'],
             'projection_depenses_fin_mois' => round($projectionFinMois, 2),
             'depenses_mois_courant' => $stats['ordonnance_montant'],
         ];
@@ -416,6 +498,26 @@ class ExecutiveAnalyticsService
         ];
     }
 
+    /** @return array{debut: string, fin: string} */
+    private function previousMonthDateRange(string $dateDebut, string $dateFin): array
+    {
+        $start = Carbon::parse($dateDebut)->subMonthNoOverflow();
+        $end = Carbon::parse($dateFin)->subMonthNoOverflow();
+
+        return [
+            'debut' => $start->toDateString(),
+            'fin' => $end->toDateString(),
+        ];
+    }
+
+    /** @return array{debut: string, fin: string} */
+    private function comparisonDateRange(string $dateDebut, string $dateFin, string $compareMode): array
+    {
+        return $compareMode === 'periode_precedente'
+            ? $this->previousDateRange($dateDebut, $dateFin)
+            : $this->previousMonthDateRange($dateDebut, $dateFin);
+    }
+
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -472,6 +574,20 @@ class ExecutiveAnalyticsService
         $date = Carbon::create($annee, $mois, 1)->subMonth();
 
         return ['annee' => $date->year, 'mois' => $date->month];
+    }
+
+    private function referenceDateForDateRange(string $dateFin): Carbon
+    {
+        $reference = Carbon::parse($dateFin)->endOfDay();
+
+        return $reference->greaterThan(now()) ? now() : $reference;
+    }
+
+    private function referenceDateForMonth(int $annee, int $mois): Carbon
+    {
+        $reference = Carbon::create($annee, $mois, 1)->endOfMonth()->endOfDay();
+
+        return $reference->greaterThan(now()) ? now() : $reference;
     }
 
     /** @return Collection<int, Mouvement> */
@@ -549,6 +665,90 @@ class ExecutiveAnalyticsService
         }
 
         return round((($current - $previous) / $previous) * 100, 1);
+    }
+
+    /** @return array{compare_mode: string, compare_label: string, sla_warning_days: int, sla_critical_days: int} */
+    private function config(?string $compareMode, ?int $slaWarningDays, ?int $slaCriticalDays): array
+    {
+        $mode = in_array($compareMode, ['mois_precedent', 'periode_precedente'], true)
+            ? $compareMode
+            : self::DEFAULT_COMPARE_MODE;
+
+        $warning = max(1, $slaWarningDays ?? self::DEFAULT_SLA_WARNING_DAYS);
+        $critical = max($warning + 1, $slaCriticalDays ?? self::DEFAULT_SLA_CRITICAL_DAYS);
+
+        return [
+            'compare_mode' => $mode,
+            'compare_label' => $mode === 'periode_precedente' ? 'période précédente' : 'mois précédent',
+            'sla_warning_days' => $warning,
+            'sla_critical_days' => $critical,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Mouvement>  $mouvements
+     * @return array{
+     *     count: int,
+     *     average_days: int,
+     *     max_days: int,
+     *     warning_days: int,
+     *     critical_days: int,
+     *     over_warning_count: int,
+     *     over_critical_count: int,
+     *     reference_date: string
+     * }
+     */
+    private function workflowAging(Collection $mouvements, Carbon $referenceDate, int $warningDays, int $criticalDays): array
+    {
+        $ages = MandatCounter::mandatsForStats($mouvements)
+            ->filter(fn (Mouvement $m) => $this->isWorkflowPending($m))
+            ->map(fn (Mouvement $m) => $this->workflowAgeInDays($m, $referenceDate))
+            ->values();
+
+        $count = $ages->count();
+
+        return [
+            'count' => $count,
+            'average_days' => $count > 0 ? (int) round((float) $ages->avg()) : 0,
+            'max_days' => $count > 0 ? (int) $ages->max() : 0,
+            'warning_days' => $warningDays,
+            'critical_days' => $criticalDays,
+            'over_warning_count' => $count > 0 ? $ages->filter(fn (int $days) => $days > $warningDays)->count() : 0,
+            'over_critical_count' => $count > 0 ? $ages->filter(fn (int $days) => $days > $criticalDays)->count() : 0,
+            'reference_date' => $referenceDate->toDateString(),
+        ];
+    }
+
+    private function isWorkflowPending(Mouvement $mouvement): bool
+    {
+        $statut = \App\Support\StatutNormalizer::normalize($mouvement->statut, $mouvement->statut_code) ?? '';
+
+        if ($statut === '') {
+            return false;
+        }
+
+        if (str_contains($statut, 'Rejet')) {
+            return false;
+        }
+
+        return ! in_array($statut, ['Payé', 'Réglé'], true);
+    }
+
+    private function workflowAgeInDays(Mouvement $mouvement, Carbon $referenceDate): int
+    {
+        $origin = null;
+
+        if ($mouvement->date_mouvement) {
+            $origin = Carbon::parse($mouvement->date_mouvement);
+        } elseif ($mouvement->annee && $mouvement->mois) {
+            $origin = Carbon::create((int) $mouvement->annee, (int) $mouvement->mois, 1);
+        }
+
+        if ($origin === null) {
+            return 0;
+        }
+
+        return max(0, $origin->startOfDay()->diffInDays($referenceDate->copy()->startOfDay()));
     }
 
     /** @param array<string, float|int> $stats */

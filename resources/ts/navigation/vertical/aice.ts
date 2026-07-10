@@ -65,4 +65,11 @@ export default [
     icon: { icon: 'tabler-map-pin' },
     to: 'admin-regions',
   },
+  {
+    title: 'Observabilité push',
+    icon: { icon: 'tabler-radar-2' },
+    to: 'admin-observabilite-push',
+    action: 'manage',
+    subject: 'gerer_observabilite_push',
+  },
 ] as VerticalNavItems

@@ -6,6 +6,17 @@ export interface DashboardKpis {
   solde: number
 }
 
+export interface WorkflowBucket {
+  count: number
+  montant: number
+}
+
+export interface WorkflowBacklog {
+  admis: WorkflowBucket
+  autres_non_payes: WorkflowBucket
+  total_hors_rejet: WorkflowBucket
+}
+
 export interface MandatTypeRow {
   code: string
   libelle: string
@@ -31,6 +42,7 @@ export interface DashboardSummary {
     date_fin: string | null
   }
   kpis: DashboardKpis
+  workflow: WorkflowBacklog
   mandats_par_type: MandatTypeRow[]
   statuts_mandats: MandatStatutRow[]
   meta: {
@@ -59,6 +71,7 @@ export interface CentralRegionRow {
     nom: string
   }
   kpis: DashboardKpis
+  workflow: WorkflowBacklog
   meta: {
     has_data: boolean
     mouvements_count: number
@@ -76,6 +89,7 @@ export interface CentralSummary {
     date_fin?: string | null
   }
   global: DashboardKpis
+  workflow: WorkflowBacklog
   regions: CentralRegionRow[]
   meta: {
     regions_actives: number
@@ -120,7 +134,26 @@ export interface ExecutiveKpis {
     montant_paye_total: number
     solde_total: number
   }
-  comparaison_mois_precedent: {
+  parametres: {
+    compare_mode: 'mois_precedent' | 'periode_precedente'
+    compare_label: string
+    sla_warning_days: number
+    sla_critical_days: number
+  }
+  workflow: WorkflowBacklog
+  workflow_aging: {
+    count: number
+    average_days: number
+    max_days: number
+    warning_days: number
+    critical_days: number
+    over_warning_count: number
+    over_critical_count: number
+    reference_date: string
+  }
+  comparaison_reference: {
+    mode: 'mois_precedent' | 'periode_precedente'
+    label: string
     ordonnance_evolution_pct: number | null
     recouvrements_evolution_pct: number | null
     mandats_evolution_pct: number | null
@@ -143,6 +176,7 @@ export interface ExecutiveKpis {
 }
 
 export interface ExecutivePredictions {
+  reference_label: string
   tendance_depenses: {
     type: 'stable' | 'hausse' | 'baisse'
     evolution_pct: number | null

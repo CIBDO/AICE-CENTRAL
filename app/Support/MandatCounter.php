@@ -139,6 +139,44 @@ class MandatCounter
     }
 
     /**
+     * Backlog workflow: Admis, autres non payés, cumul hors rejeté.
+     *
+     * @param  Collection<int, Mouvement>  $mouvements
+     * @return array{
+     *     admis: array{count: int, montant: float},
+     *     autres_non_payes: array{count: int, montant: float},
+     *     total_hors_rejet: array{count: int, montant: float}
+     * }
+     */
+    public static function workflowBacklog(Collection $mouvements): array
+    {
+        // Même base que le tableau "Statuts des mandats" :
+        // lignes NAV groupées par statut normalisé, puis agrégées en buckets workflow.
+        $statutRows = collect(self::parStatut($mouvements));
+
+        $admis = $statutRows->filter(fn (array $row) => ($row['statut'] ?? '') === 'Admis')->values();
+        $autresNonPayes = $statutRows->filter(function (array $row) {
+            $label = (string) ($row['statut'] ?? '');
+
+            if ($label === '' || $label === 'Admis') {
+                return false;
+            }
+
+            if (str_contains($label, 'Rejet')) {
+                return false;
+            }
+
+            return ! in_array($label, ['Payé', 'Réglé'], true);
+        })->values();
+
+        return [
+            'admis' => self::workflowBucket($admis),
+            'autres_non_payes' => self::workflowBucket($autresNonPayes),
+            'total_hors_rejet' => self::workflowBucket($admis->concat($autresNonPayes)->values()),
+        ];
+    }
+
+    /**
      * Mouvements issus de v_dashboard_mandats (codes 0/1/2 ou libellés équivalents).
      *
      * @param  Collection<int, Mouvement>  $mouvements
@@ -308,5 +346,17 @@ class MandatCounter
         ];
 
         return $aliases[mb_strtolower(trim($libelle))] ?? null;
+    }
+
+    /**
+     * @param  Collection<int, array{statut?: string, count?: int, montant?: float|int}>  $statusRows
+     * @return array{count: int, montant: float}
+     */
+    private static function workflowBucket(Collection $statusRows): array
+    {
+        return [
+            'count' => (int) $statusRows->sum(fn (array $row) => (int) ($row['count'] ?? 0)),
+            'montant' => (float) $statusRows->sum(fn (array $row) => (float) ($row['montant'] ?? 0)),
+        ];
     }
 }

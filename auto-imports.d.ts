@@ -315,6 +315,7 @@ declare global {
   const usePrevious: typeof import('@vueuse/core')['usePrevious']
   const useProgrammesExplorer: typeof import('./resources/ts/composables/useProgrammesExplorer')['useProgrammesExplorer']
   const useProjection: typeof import('@vueuse/math')['useProjection']
+  const usePushObservability: typeof import('./resources/ts/composables/usePushObservability')['usePushObservability']
   const useRafFn: typeof import('@vueuse/core')['useRafFn']
   const useRecettesExplorer: typeof import('./resources/ts/composables/useRecettesExplorer')['useRecettesExplorer']
   const useRefHistory: typeof import('@vueuse/core')['useRefHistory']
@@ -714,6 +715,7 @@ declare module 'vue' {
     readonly usePrevious: UnwrapRef<typeof import('@vueuse/core')['usePrevious']>
     readonly useProgrammesExplorer: UnwrapRef<typeof import('./resources/ts/composables/useProgrammesExplorer')['useProgrammesExplorer']>
     readonly useProjection: UnwrapRef<typeof import('@vueuse/math')['useProjection']>
+    readonly usePushObservability: UnwrapRef<typeof import('./resources/ts/composables/usePushObservability')['usePushObservability']>
     readonly useRafFn: UnwrapRef<typeof import('@vueuse/core')['useRafFn']>
     readonly useRecettesExplorer: UnwrapRef<typeof import('./resources/ts/composables/useRecettesExplorer')['useRecettesExplorer']>
     readonly useRefHistory: UnwrapRef<typeof import('@vueuse/core')['useRefHistory']>

@@ -12,6 +12,10 @@ use Illuminate\Support\Collection;
 
 class CentralAggregationService
 {
+    public function __construct(private readonly BanqueQueryService $banqueQueryService)
+    {
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -30,6 +34,7 @@ class CentralAggregationService
 
         $regionRows = [];
         $global = DashboardKpis::empty();
+        $workflow = $this->emptyWorkflow();
 
         $regionsWithData = 0;
         $latestUpdate = null;
@@ -44,20 +49,29 @@ class CentralAggregationService
                 'mandats_count' => 0,
                 'recettes_count' => 0,
             ];
+            $regionWorkflow = $this->emptyWorkflow();
 
             if ($dashboard) {
-                $counts = $this->summaryCounts($this->mouvementsForDashboard($dashboard, $annee, $mois));
+                $mouvements = $this->mouvementsForDashboard($dashboard, $annee, $mois);
+                $counts = $this->summaryCounts($mouvements);
+                $regionWorkflow = MandatCounter::workflowBacklog($mouvements);
+                $bankBalance = $this->bankBalance([
+                    'region_code' => $region->code,
+                    'annee' => $annee,
+                    'mois' => $mois,
+                ]);
 
-                if ($counts['mouvements_count'] > 0) {
+                if ($counts['mouvements_count'] > 0 || $bankBalance !== 0.0) {
                     $regionsWithData++;
                 }
 
-                $dashboardKpis = DashboardKpis::fromDashboard($dashboard);
+                $dashboardKpis = $this->withBankBalance(DashboardKpis::fromDashboard($dashboard), $bankBalance);
                 $global['total_ordonnance'] += $dashboardKpis['total_ordonnance'];
                 $global['total_recouvrements_4121'] += $dashboardKpis['total_recouvrements_4121'];
                 $global['total_montant_paye'] += $dashboardKpis['total_montant_paye'];
                 $global['solde'] += $dashboardKpis['solde'];
                 $global['tresorerie_reelle'] += $dashboardKpis['tresorerie_reelle'];
+                $workflow = $this->mergeWorkflow($workflow, $regionWorkflow);
                 $globalMandatsCount += $counts['mandats_count'];
                 $globalRecettesCount += $counts['recettes_count'];
                 $globalMouvementsCount += $counts['mouvements_count'];
@@ -67,7 +81,17 @@ class CentralAggregationService
                 }
             }
 
-            $regionRows[] = $this->buildRegionRow($region, $dashboard, $counts);
+            $regionRows[] = $this->buildRegionRow(
+                $region,
+                $dashboard,
+                $counts,
+                $regionWorkflow,
+                $this->bankBalance([
+                    'region_code' => $region->code,
+                    'annee' => $annee,
+                    'mois' => $mois,
+                ]),
+            );
         }
 
         return [
@@ -78,6 +102,7 @@ class CentralAggregationService
                 'date_fin' => null,
             ],
             'global' => $global,
+            'workflow' => $workflow,
             'regions' => $regionRows,
             'meta' => [
                 'regions_actives' => $regions->count(),
@@ -99,6 +124,7 @@ class CentralAggregationService
 
         $regionRows = [];
         $global = DashboardKpis::empty();
+        $workflow = $this->emptyWorkflow();
 
         $regionsWithData = 0;
         $latestUpdate = null;
@@ -121,8 +147,13 @@ class CentralAggregationService
                 ->where('region_id', $region->id)
                 ->orderByDesc('updated_at')
                 ->first();
+            $bankBalance = $this->bankBalance([
+                'region_code' => $region->code,
+                'date_debut' => $dateDebut,
+                'date_fin' => $dateFin,
+            ]);
 
-            if ($counts['mouvements_count'] > 0) {
+            if ($counts['mouvements_count'] > 0 || $bankBalance !== 0.0) {
                 $financial = MandatCounter::financialTotals($mouvements);
                 $recouvrements = $financial['total_recouvrements_4121'] > 0
                     ? $financial['total_recouvrements_4121']
@@ -131,7 +162,7 @@ class CentralAggregationService
                     'total_ordonnance' => $financial['total_ordonnance'],
                     'total_recouvrements_4121' => $recouvrements,
                     'total_montant_paye' => $financial['total_montant_paye'],
-                ], $latestDashboard ? (float) $latestDashboard->tresorerie_reelle : 0.0);
+                ], $bankBalance);
 
                 $regionsWithData++;
                 $global['total_ordonnance'] += $regionKpis['total_ordonnance'];
@@ -139,6 +170,8 @@ class CentralAggregationService
                 $global['total_montant_paye'] += $regionKpis['total_montant_paye'];
                 $global['solde'] += $regionKpis['solde'];
                 $global['tresorerie_reelle'] += $regionKpis['tresorerie_reelle'];
+                $regionWorkflow = MandatCounter::workflowBacklog($mouvements);
+                $workflow = $this->mergeWorkflow($workflow, $regionWorkflow);
                 $globalMandatsCount += $counts['mandats_count'];
                 $globalRecettesCount += $counts['recettes_count'];
                 $globalMouvementsCount += $counts['mouvements_count'];
@@ -153,6 +186,7 @@ class CentralAggregationService
                         'nom' => $region->nom,
                     ],
                     'kpis' => $regionKpis,
+                    'workflow' => $regionWorkflow,
                     'meta' => [
                         'has_data' => true,
                         'mouvements_count' => $counts['mouvements_count'],
@@ -162,7 +196,7 @@ class CentralAggregationService
                     ],
                 ];
             } else {
-                $regionRows[] = $this->buildRegionRow($region, null, $counts);
+                $regionRows[] = $this->buildRegionRow($region, null, $counts, $this->emptyWorkflow(), $bankBalance);
             }
         }
 
@@ -174,6 +208,7 @@ class CentralAggregationService
                 'date_fin' => $dateFin,
             ],
             'global' => $global,
+            'workflow' => $workflow,
             'regions' => $regionRows,
             'meta' => [
                 'regions_actives' => $regions->count(),
@@ -199,22 +234,44 @@ class CentralAggregationService
     }
 
     /** @return array<string, mixed> */
-    private function buildRegionRow(Region $region, ?Dashboard $dashboard, array $counts): array
+    private function buildRegionRow(Region $region, ?Dashboard $dashboard, array $counts, array $workflow, float $bankBalance): array
     {
         return [
             'region' => [
                 'code' => $region->code,
                 'nom' => $region->nom,
             ],
-            'kpis' => $dashboard ? DashboardKpis::fromDashboard($dashboard) : DashboardKpis::empty(),
+            'kpis' => $dashboard
+                ? $this->withBankBalance(DashboardKpis::fromDashboard($dashboard), $bankBalance)
+                : $this->withBankBalance(DashboardKpis::empty(), $bankBalance),
+            'workflow' => $workflow,
             'meta' => [
-                'has_data' => $dashboard !== null,
+                'has_data' => $dashboard !== null || $bankBalance !== 0.0,
                 'mouvements_count' => $counts['mouvements_count'],
                 'mandats_count' => $counts['mandats_count'],
                 'recettes_count' => $counts['recettes_count'],
                 'derniere_mise_a_jour' => $dashboard?->updated_at?->toIso8601String(),
             ],
         ];
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function bankBalance(array $filters): float
+    {
+        return $this->banqueQueryService->filteredBalance(array_filter(
+            $filters,
+            fn (mixed $value) => $value !== null && $value !== ''
+        ));
+    }
+
+    /** @param array<string, float> $kpis
+     *  @return array<string, float>
+     */
+    private function withBankBalance(array $kpis, float $bankBalance): array
+    {
+        $kpis['tresorerie_reelle'] = $bankBalance;
+
+        return $kpis;
     }
 
     /**
@@ -288,5 +345,48 @@ class CentralAggregationService
             ->get()
             ->unique('regional_id')
             ->sum(fn (RecetteClientPush $r) => (float) $r->montant);
+    }
+
+    /**
+     * @return array{
+     *     admis: array{count: int, montant: float},
+     *     autres_non_payes: array{count: int, montant: float},
+     *     total_hors_rejet: array{count: int, montant: float}
+     * }
+     */
+    private function emptyWorkflow(): array
+    {
+        return [
+            'admis' => ['count' => 0, 'montant' => 0.0],
+            'autres_non_payes' => ['count' => 0, 'montant' => 0.0],
+            'total_hors_rejet' => ['count' => 0, 'montant' => 0.0],
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     admis: array{count: int, montant: float},
+     *     autres_non_payes: array{count: int, montant: float},
+     *     total_hors_rejet: array{count: int, montant: float}
+     * }  $base
+     * @param  array{
+     *     admis: array{count: int, montant: float},
+     *     autres_non_payes: array{count: int, montant: float},
+     *     total_hors_rejet: array{count: int, montant: float}
+     * }  $incoming
+     * @return array{
+     *     admis: array{count: int, montant: float},
+     *     autres_non_payes: array{count: int, montant: float},
+     *     total_hors_rejet: array{count: int, montant: float}
+     * }
+     */
+    private function mergeWorkflow(array $base, array $incoming): array
+    {
+        foreach (['admis', 'autres_non_payes', 'total_hors_rejet'] as $key) {
+            $base[$key]['count'] += (int) ($incoming[$key]['count'] ?? 0);
+            $base[$key]['montant'] += (float) ($incoming[$key]['montant'] ?? 0.0);
+        }
+
+        return $base;
     }
 }

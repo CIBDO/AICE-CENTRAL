@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { RouteLocationRaw } from 'vue-router'
+
 interface QuickLink {
   title: string
   hint?: string
   icon: string
-  to: string | { name: string }
+  to: RouteLocationRaw
 }
 
 defineProps<{ links: QuickLink[] }>()

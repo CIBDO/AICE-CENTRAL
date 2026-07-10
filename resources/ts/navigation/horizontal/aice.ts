@@ -72,6 +72,13 @@ export default [
         to: 'admin-regions',
         icon: { icon: 'tabler-map-pin' },
       },
+      {
+        title: 'Observabilité push',
+        to: 'admin-observabilite-push',
+        icon: { icon: 'tabler-radar-2' },
+        action: 'manage',
+        subject: 'gerer_observabilite_push',
+      },
     ],
   },
 ] as HorizontalNavItems

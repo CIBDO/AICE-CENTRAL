@@ -34,6 +34,7 @@ const permissionGroups = computed<PermissionGroup[]>(() => {
     recettes: 'Recettes',
     banques: 'Banques',
     dashboard: 'Tableau de bord',
+    observabilite_push: 'Observabilité push',
   }
 
   const groups = new Map<string, PermissionGroup>()

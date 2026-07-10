@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BanquePush;
 use App\Models\Dashboard;
 use App\Models\Mouvement;
 use App\Models\Region;
@@ -96,11 +97,42 @@ class CentralSummaryTest extends TestCase
             'statut' => 'Admis',
         ]);
 
+        BanquePush::create([
+            'dashboard_id' => $dashboardRgf->id,
+            'regional_id' => 'BANQUE-ENTRY-RGF-1',
+            'numero_compte' => 'CPT-RGF',
+            'libelle' => 'Compte RGF',
+            'date_mouvement' => '2024-06-10',
+            'debit' => 0,
+            'credit' => 0,
+            'solde' => 1500,
+            'entry_no' => 'RGF-9001',
+            'exercice' => 2024,
+        ]);
+
+        BanquePush::create([
+            'dashboard_id' => $dashboardRgd->id,
+            'regional_id' => 'BANQUE-ENTRY-RGD-1',
+            'numero_compte' => 'CPT-RGD',
+            'libelle' => 'Compte RGD',
+            'date_mouvement' => '2024-06-11',
+            'debit' => 0,
+            'credit' => 0,
+            'solde' => 3200,
+            'entry_no' => 'RGD-9001',
+            'exercice' => 2024,
+        ]);
+
         $response = $this->getJson('/api/v1/central/summary?annee=2024&mois=6');
 
         $response->assertOk();
         $response->assertJsonPath('data.global.total_recouvrements_4121', 3000);
         $response->assertJsonPath('data.global.total_ordonnance', 1200);
+        $response->assertJsonPath('data.global.tresorerie_reelle', 4700);
+        $response->assertJsonPath('data.workflow.admis.count', 1);
+        $response->assertJsonPath('data.workflow.admis.montant', 200);
+        $response->assertJsonPath('data.workflow.autres_non_payes.count', 0);
+        $response->assertJsonPath('data.workflow.total_hors_rejet.count', 1);
         $response->assertJsonPath('data.meta.regions_avec_donnees', 2);
         $response->assertJsonPath('data.meta.mandats_count', 2);
         $response->assertJsonPath('data.meta.recettes_count', 1);

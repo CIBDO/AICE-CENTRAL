@@ -17,6 +17,20 @@ class BanqueQueryService
     /**
      * @param  array<string, mixed>  $filters
      */
+    public function filteredBalance(array $filters): float
+    {
+        $rows = $this->queryRows($filters);
+
+        if ($rows->isEmpty()) {
+            return 0.0;
+        }
+
+        return $this->latestBalancesPerAccount($this->dedupeBanques($rows));
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
     public function paginate(array $filters): LengthAwarePaginator
     {
         $rows = $this->collectRows($filters);
@@ -92,6 +106,17 @@ class BanqueQueryService
      */
     private function collectRows(array $filters): Collection
     {
+        return $this->dedupeBanques(
+            $this->queryRows($filters)
+        )->map(fn (BanquePush $b) => $this->toBanqueRow($b))->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Collection<int, BanquePush>
+     */
+    private function queryRows(array $filters): Collection
+    {
         [, , $dashboardIds] = DetailQueryFilters::resolveContext($filters);
 
         $hasLineLevel = BanquePush::query()
@@ -99,12 +124,10 @@ class BanqueQueryService
             ->where('regional_id', 'like', 'BANQUE-ENTRY-%')
             ->exists();
 
-        return $this->dedupeBanques(
-            $this->baseQuery($filters, $hasLineLevel)
-                ->orderByDesc('date_mouvement')
-                ->orderByDesc('id')
-                ->get()
-        )->map(fn (BanquePush $b) => $this->toBanqueRow($b))->values();
+        return $this->baseQuery($filters, $hasLineLevel)
+            ->orderByDesc('date_mouvement')
+            ->orderByDesc('id')
+            ->get();
     }
 
     /** @param  array<string, mixed>  $filters */
@@ -182,6 +205,26 @@ class BanqueQueryService
             ->sortByDesc(fn (BanquePush $b) => $b->date_mouvement?->format('Y-m-d') ?? '')
             ->sortByDesc('id')
             ->values();
+    }
+
+    /**
+     * @param  Collection<int, BanquePush>  $rows
+     */
+    private function latestBalancesPerAccount(Collection $rows): float
+    {
+        return (float) $rows
+            ->filter(fn (BanquePush $b) => filled($b->numero_compte))
+            ->groupBy('numero_compte')
+            ->map(function (Collection $group) {
+                /** @var BanquePush|null $latest */
+                $latest = $group
+                    ->sortByDesc(fn (BanquePush $b) => $b->date_mouvement?->format('Y-m-d') ?? '')
+                    ->sortByDesc('id')
+                    ->first();
+
+                return (float) ($latest?->solde ?? 0);
+            })
+            ->sum();
     }
 
     /** @return array<string, mixed> */

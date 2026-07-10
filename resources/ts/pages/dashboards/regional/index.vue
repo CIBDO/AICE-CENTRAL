@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { useAbility } from '@casl/vue'
 import type { KpiAccent } from '@/types/dashboard'
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import QuickLinkGrid from '@/components/aice/QuickLinkGrid.vue'
+import { useNatureCeExplorer } from '@/composables/useNatureCeExplorer'
+import { useProgrammesExplorer } from '@/composables/useProgrammesExplorer'
 import { formatDateFr, formatFcfa } from '@/composables/useFormat'
 import { useDashboardAutoRefresh } from '@/composables/useDashboardAutoRefresh'
 import { useDashboardFilterSync } from '@/composables/useDetailExplorerContext'
@@ -13,15 +16,32 @@ definePage({ meta: { layout: 'default' } })
 const { loading, error, summary, fetchSummary } = useDashboardSummary()
 const { loading: regionsLoading, regions, fetchRegions } = useRegions()
 const { regionCode, dateDebut, dateFin, periodLabel, detailRoute, dashboardRoute, hydrateFromRoute } = useDashboardFilterSync()
+const ability = useAbility()
+const canManagePush = computed(() => ability.can('manage', 'gerer_observabilite_push'))
+const programmesExplorer = useProgrammesExplorer()
+const natureCeExplorer = useNatureCeExplorer()
 
-const quickLinks = computed(() => [
-  { title: 'Mandats', hint: 'Explorateur interactif', icon: 'tabler-file-invoice', to: detailRoute('details-mandats') },
-  { title: 'Recettes', hint: 'Clients & encaissements', icon: 'tabler-cash', to: detailRoute('details-recettes') },
-  { title: 'Banques', hint: 'Flux trésorerie', icon: 'tabler-building-bank', to: detailRoute('details-banques') },
-  { title: 'Programmes', hint: 'Exécution budgétaire', icon: 'tabler-layout-grid', to: detailRoute('details-programmes') },
-  { title: 'Natures CE', hint: 'Classification CE', icon: 'tabler-category', to: detailRoute('details-natures-ce') },
-  { title: 'Vue centrale', hint: 'Multi-régions', icon: 'tabler-chart-dots-3', to: dashboardRoute('dashboards-central') },
-])
+const quickLinks = computed(() => {
+  const links = [
+    { title: 'Mandats', hint: 'Explorateur interactif', icon: 'tabler-file-invoice', to: detailRoute('details-mandats') },
+    { title: 'Recettes', hint: 'Clients & encaissements', icon: 'tabler-cash', to: detailRoute('details-recettes') },
+    { title: 'Banques', hint: 'Flux trésorerie', icon: 'tabler-building-bank', to: detailRoute('details-banques') },
+    { title: 'Programmes', hint: 'Exécution budgétaire', icon: 'tabler-layout-grid', to: detailRoute('details-programmes') },
+    { title: 'Natures CE', hint: 'Classification CE', icon: 'tabler-category', to: detailRoute('details-natures-ce') },
+    { title: 'Vue centrale', hint: 'Multi-régions', icon: 'tabler-chart-dots-3', to: dashboardRoute('dashboards-central') },
+  ]
+
+  if (canManagePush.value) {
+    links.push({
+      title: 'Observabilité push',
+      hint: 'Suivi technique des remontées',
+      icon: 'tabler-radar-2',
+      to: { name: 'admin-observabilite-push' },
+    })
+  }
+
+  return links
+})
 
 const kpis = computed(() => {
   const data = summary.value?.kpis
@@ -30,7 +50,7 @@ const kpis = computed(() => {
       { label: 'Ordonnancé', value: '—', accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
       { label: 'Recouvrements (4121)', value: '—', accent: 'recouvrements' as KpiAccent, icon: 'tabler-receipt' },
       { label: 'Payé + Réglé', value: '—', accent: 'paye' as KpiAccent, icon: 'tabler-circle-check' },
-      { label: 'Solde bancaire actuel ', value: '—', accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
+      { label: 'Solde bancaire filtré', value: '—', accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
       { label: 'Écart (4121 − ord.)', value: '—', accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
     ]
   }
@@ -38,9 +58,57 @@ const kpis = computed(() => {
     { label: 'Ordonnancé', value: formatFcfa(data.total_ordonnance), accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
     { label: 'Recouvrements (4121)', value: formatFcfa(data.total_recouvrements_4121), accent: 'recouvrements' as KpiAccent, icon: 'tabler-receipt' },
     { label: 'Payé + Réglé', value: formatFcfa(data.total_montant_paye), accent: 'paye' as KpiAccent, icon: 'tabler-circle-check' },
-    { label: 'Solde bancaire actuel', value: formatFcfa(data.tresorerie_reelle), accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
+    { label: 'Solde bancaire filtré', value: formatFcfa(data.tresorerie_reelle), accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
     { label: 'Écart (4121 − ord.)', value: formatFcfa(data.solde), accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
   ]
+})
+
+const workflowKpis = computed(() => {
+  const workflow = summary.value?.workflow
+  if (!workflow) {
+    return [
+      { key: 'admis', label: 'Admis', value: '—', variation: null, accent: 'solde' as KpiAccent, icon: 'tabler-hourglass-high' },
+      { key: 'autres', label: 'Autres non payés', value: '—', variation: null, accent: 'neutral' as KpiAccent, icon: 'tabler-loader-2' },
+      { key: 'total', label: 'Cumul hors rejeté', value: '—', variation: null, accent: 'ordonnance' as KpiAccent, icon: 'tabler-stack-2' },
+    ]
+  }
+
+  return [
+    {
+      key: 'admis',
+      label: 'Admis',
+      value: formatFcfa(workflow.admis.montant),
+      variation: `${workflow.admis.count.toLocaleString('fr-FR')} mandat(s)`,
+      accent: 'solde' as KpiAccent,
+      icon: 'tabler-hourglass-high',
+    },
+    {
+      key: 'autres',
+      label: 'Autres non payés',
+      value: formatFcfa(workflow.autres_non_payes.montant),
+      variation: `${workflow.autres_non_payes.count.toLocaleString('fr-FR')} mandat(s)`,
+      accent: 'neutral' as KpiAccent,
+      icon: 'tabler-loader-2',
+    },
+    {
+      key: 'total',
+      label: 'Cumul hors rejeté',
+      value: formatFcfa(workflow.total_hors_rejet.montant),
+      variation: `${workflow.total_hors_rejet.count.toLocaleString('fr-FR')} mandat(s)`,
+      accent: 'ordonnance' as KpiAccent,
+      icon: 'tabler-stack-2',
+    },
+  ]
+})
+
+const topProgrammes = computed(() => programmesExplorer.stats.value?.programmes?.slice(0, 5) ?? [])
+const topNaturesCe = computed(() => natureCeExplorer.stats.value?.natures_ce?.slice(0, 5) ?? [])
+const topChapitres = computed(() => {
+  const fromProgrammes = programmesExplorer.stats.value?.par_chapitre ?? []
+  if (fromProgrammes.length)
+    return fromProgrammes.slice(0, 5)
+
+  return (natureCeExplorer.stats.value?.par_chapitre ?? []).slice(0, 5)
 })
 
 const heroStats = computed(() => {
@@ -80,6 +148,24 @@ async function loadDashboard(silent = false) {
 
   if (!regionCode.value && summary.value?.region.code)
     regionCode.value = summary.value.region.code
+
+  await Promise.all([
+    programmesExplorer.fetch({
+      region_code: regionCode.value,
+      date_debut: dateDebut.value,
+      date_fin: dateFin.value,
+      page: 1,
+      per_page: 5,
+      type: 'depense',
+    }),
+    natureCeExplorer.fetch({
+      region_code: regionCode.value,
+      date_debut: dateDebut.value,
+      date_fin: dateFin.value,
+      page: 1,
+      per_page: 5,
+    }),
+  ])
 }
 
 watch([regionCode, dateDebut, dateFin], () => loadDashboard())
@@ -211,6 +297,151 @@ onMounted(async () => {
       </VCol>
     </VRow>
 
+    <p class="aice-section-label mb-2">
+      Reste à payer workflow
+    </p>
+    <VRow class="mb-1">
+      <VCol
+        v-for="kpi in workflowKpis"
+        :key="kpi.key"
+        cols="12"
+        sm="6"
+        lg="4"
+      >
+        <KpiStat
+          :label="kpi.label"
+          :value="kpi.value"
+          :variation="kpi.variation"
+          :accent="kpi.accent"
+          :icon="kpi.icon"
+        />
+      </VCol>
+    </VRow>
+
+    <VRow class="mt-1">
+      <VCol
+        cols="12"
+        md="4"
+      >
+        <DataPanel
+          title="Top Programmes"
+          :subtitle="periodLabel"
+        >
+          <div
+            v-if="!topProgrammes.length"
+            class="aice-panel-empty"
+          >
+            Aucune donnée programme sur cette période.
+          </div>
+          <div
+            v-else
+            class="aice-top-list"
+          >
+            <div
+              v-for="row in topProgrammes"
+              :key="row.code"
+              class="aice-top-item"
+            >
+              <div class="aice-top-item__label">
+                {{ row.libelle || row.code }}
+              </div>
+              <div class="aice-top-item__value tabular-nums">
+                {{ formatFcfa(row.montant_depenses) }}
+              </div>
+            </div>
+          </div>
+          <div class="aice-top-actions">
+            <VBtn
+              size="small"
+              variant="text"
+              color="primary"
+              :to="detailRoute('details-programmes')"
+            >
+              Voir détail
+            </VBtn>
+          </div>
+        </DataPanel>
+      </VCol>
+
+      <VCol
+        cols="12"
+        md="4"
+      >
+        <DataPanel
+          title="Top Natures CE"
+          :subtitle="periodLabel"
+        >
+          <div
+            v-if="!topNaturesCe.length"
+            class="aice-panel-empty"
+          >
+            Aucune nature CE disponible sur cette période.
+          </div>
+          <div
+            v-else
+            class="aice-top-list"
+          >
+            <div
+              v-for="row in topNaturesCe"
+              :key="row.code"
+              class="aice-top-item"
+            >
+              <div class="aice-top-item__label">
+                {{ row.libelle || row.code }}
+              </div>
+              <div class="aice-top-item__value tabular-nums">
+                {{ formatFcfa(row.montant_depenses) }}
+              </div>
+            </div>
+          </div>
+          <div class="aice-top-actions">
+            <VBtn
+              size="small"
+              variant="text"
+              color="primary"
+              :to="detailRoute('details-natures-ce')"
+            >
+              Voir détail
+            </VBtn>
+          </div>
+        </DataPanel>
+      </VCol>
+
+      <VCol
+        cols="12"
+        md="4"
+      >
+        <DataPanel
+          title="Top Chapitres"
+          :subtitle="periodLabel"
+        >
+          <div
+            v-if="!topChapitres.length"
+            class="aice-panel-empty"
+          >
+            Aucun chapitre disponible sur cette période.
+          </div>
+          <div
+            v-else
+            class="aice-top-list"
+          >
+            <div
+              v-for="row in topChapitres"
+              :key="row.label"
+              class="aice-top-item"
+            >
+              <div class="aice-top-item__label">
+                {{ row.label }}
+              </div>
+              <div class="aice-top-item__value tabular-nums">
+                {{ formatFcfa(row.montant) }}
+              </div>
+            </div>
+          </div>
+        </DataPanel>
+      </VCol>
+    </VRow>
+
     <VRow>
       <VCol
         cols="12"
@@ -318,6 +549,47 @@ onMounted(async () => {
 </template>
 
 <style scoped lang="scss">
+.aice-section-label {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.aice-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: 0.5rem;
+}
+
+.aice-top-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.aice-top-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+
+  &__label {
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    font-size: 0.8125rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__value {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }

@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\RecetteController;
 use App\Http\Controllers\Api\RegionalSyncController;
 use App\Http\Controllers\Api\ProgrammeController;
 use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\PushEventController;
 use App\Http\Controllers\Api\RegionController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
@@ -70,6 +71,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/roles', [RoleController::class, 'index'])->name('api.roles.index');
         Route::get('/roles/{role}', [RoleController::class, 'show'])->name('api.roles.show');
         Route::get('/permissions', [PermissionController::class, 'index'])->name('api.permissions.index');
+        Route::middleware('can:gerer_observabilite_push')->group(function () {
+            Route::get('/push-events', [PushEventController::class, 'index'])->name('api.push-events.index');
+            Route::get('/push-events/regions', [PushEventController::class, 'regions'])->name('api.push-events.regions');
+        });
 
         Route::middleware('can:gerer_roles')->group(function () {
             Route::post('/roles', [RoleController::class, 'store'])->name('api.roles.store');

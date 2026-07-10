@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BanquePush;
 use App\Models\Dashboard;
 use App\Models\Region;
 use App\Models\User;
@@ -99,6 +100,10 @@ class DashboardSummaryTest extends TestCase
         $response->assertJsonPath('data.kpis.total_recouvrements_4121', 500);
         $response->assertJsonPath('data.kpis.total_ordonnance', 200);
         $response->assertJsonPath('data.kpis.solde', 300);
+        $response->assertJsonPath('data.workflow.admis.count', 1);
+        $response->assertJsonPath('data.workflow.admis.montant', 200);
+        $response->assertJsonPath('data.workflow.autres_non_payes.count', 0);
+        $response->assertJsonPath('data.workflow.total_hors_rejet.count', 1);
         $response->assertJsonPath('data.meta.mouvements_count', 2);
         $response->assertJsonPath('data.meta.mandats_count', 1);
         $response->assertJsonPath('data.meta.recettes_count', 1);
@@ -181,5 +186,89 @@ class DashboardSummaryTest extends TestCase
         $response->assertJsonPath('data.mandats_par_type.2.count', 0);
         $response->assertJsonPath('data.meta.mandats_count', 5);
         $response->assertJsonPath('data.meta.recettes_count', 4);
+    }
+
+    public function test_summary_returns_filtered_bank_balance_for_visible_date_range(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $region = Region::create([
+            'code' => 'SAN',
+            'nom' => 'SAN',
+            'actif' => true,
+            'token' => 'token-san',
+            'source_type' => 'api',
+        ]);
+
+        $dashboard = Dashboard::create([
+            'region_id' => $region->id,
+            'local_id' => 'SAN',
+            'regional_id' => 'DASH-SAN-BANK',
+            'total_ordonnance' => 0,
+            'total_recouvrements_4121' => 0,
+            'total_montant_paye' => 0,
+            'solde' => 0,
+            'tresorerie_reelle' => 99_999,
+            'annee' => 2024,
+            'mois' => null,
+        ]);
+
+        BanquePush::create([
+            'dashboard_id' => $dashboard->id,
+            'regional_id' => 'BANQUE-ENTRY-1',
+            'numero_compte' => 'CPT-A',
+            'libelle' => 'Compte A',
+            'date_mouvement' => '2024-06-05',
+            'debit' => 0,
+            'credit' => 0,
+            'solde' => 1000,
+            'entry_no' => '9001',
+            'exercice' => 2024,
+        ]);
+
+        BanquePush::create([
+            'dashboard_id' => $dashboard->id,
+            'regional_id' => 'BANQUE-ENTRY-2',
+            'numero_compte' => 'CPT-A',
+            'libelle' => 'Compte A',
+            'date_mouvement' => '2024-06-18',
+            'debit' => 0,
+            'credit' => 0,
+            'solde' => 1400,
+            'entry_no' => '9002',
+            'exercice' => 2024,
+        ]);
+
+        BanquePush::create([
+            'dashboard_id' => $dashboard->id,
+            'regional_id' => 'BANQUE-ENTRY-3',
+            'numero_compte' => 'CPT-B',
+            'libelle' => 'Compte B',
+            'date_mouvement' => '2024-06-10',
+            'debit' => 0,
+            'credit' => 0,
+            'solde' => 2000,
+            'entry_no' => '9003',
+            'exercice' => 2024,
+        ]);
+
+        BanquePush::create([
+            'dashboard_id' => $dashboard->id,
+            'regional_id' => 'BANQUE-ENTRY-4',
+            'numero_compte' => 'CPT-A',
+            'libelle' => 'Compte A',
+            'date_mouvement' => '2024-07-01',
+            'debit' => 0,
+            'credit' => 0,
+            'solde' => 5000,
+            'entry_no' => '9004',
+            'exercice' => 2024,
+        ]);
+
+        $response = $this->getJson('/api/v1/dashboards/summary?region_code=SAN&date_debut=2024-06-01&date_fin=2024-06-30');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.kpis.tresorerie_reelle', 3400);
+        $response->assertJsonPath('data.meta.mouvements_count', 0);
     }
 }

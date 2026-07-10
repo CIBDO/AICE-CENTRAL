@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAbility } from '@casl/vue'
 import type { KpiAccent } from '@/types/dashboard'
 import ExplorerHero from '@/components/aice/ExplorerHero.vue'
 import AlertList from '@/components/aice/AlertList.vue'
@@ -10,18 +11,51 @@ import {
   formatPercent,
 } from '@/composables/useFormat'
 import { useDashboardAutoRefresh } from '@/composables/useDashboardAutoRefresh'
-import { useDashboardFilterSync } from '@/composables/useDetailExplorerContext'
+import { queryParam, useExplorerRouteSync } from '@/composables/useDetailExplorerContext'
 import { useExecutiveDashboard } from '@/composables/useExecutiveDashboard'
 import { useRegions } from '@/composables/useRegions'
 
 definePage({ meta: { layout: 'default' } })
 
-const { regionCode, dateDebut, dateFin, periodLabel, detailRoute, dashboardRoute, hydrateFromRoute } = useDashboardFilterSync()
+const compareMode = ref<'mois_precedent' | 'periode_precedente'>('mois_precedent')
+const slaWarningDays = ref(7)
+const slaCriticalDays = ref(15)
+
+const { regionCode, dateDebut, dateFin, periodLabel, baseQuery, detailRoute, dashboardRoute, syncRoute, hydrateFromRoute } = useExplorerRouteSync(
+  () => ({
+    compare_mode: compareMode.value,
+    sla_warning_days: slaWarningDays.value,
+    sla_critical_days: slaCriticalDays.value,
+  }),
+  (query) => {
+    const mode = queryParam(query.compare_mode)
+    compareMode.value = mode === 'periode_precedente' ? 'periode_precedente' : 'mois_precedent'
+
+    const warning = Number(queryParam(query.sla_warning_days) ?? 7)
+    const critical = Number(queryParam(query.sla_critical_days) ?? 15)
+    slaWarningDays.value = Number.isFinite(warning) && warning > 0 ? warning : 7
+    slaCriticalDays.value = Number.isFinite(critical) && critical > slaWarningDays.value ? critical : Math.max(slaWarningDays.value + 1, 15)
+  },
+)
 const { loading, error, kpis, alertes, anomalies, predictions, fetchAll } = useExecutiveDashboard()
 const { loading: regionsLoading, regions, fetchRegions } = useRegions()
+const ability = useAbility()
+const canManagePush = computed(() => ability.can('manage', 'gerer_observabilite_push'))
+
+const compareModeOptions = [
+  { title: 'Mois précédent', value: 'mois_precedent' },
+  { title: 'Période précédente', value: 'periode_precedente' },
+]
 
 const lastUpdate = computed(() => formatDateFr(kpis.value?.meta.derniere_mise_a_jour))
 const hasData = computed(() => (kpis.value?.meta.regions_avec_donnees ?? 0) > 0)
+const silentRegionsCount = computed(() => {
+  const meta = kpis.value?.meta
+  if (!meta)
+    return 0
+
+  return Math.max(0, meta.regions_actives - meta.regions_avec_donnees)
+})
 
 const regionLabel = computed(() => {
   if (!regionCode.value)
@@ -38,12 +72,28 @@ const heroSubtitle = computed(() =>
     : `Synthèse nationale · ${periodLabel}`,
 )
 
-const quickLinks = computed(() => [
-  { title: 'Vue centrale', hint: 'Toutes les régions', icon: 'tabler-chart-dots-3', to: dashboardRoute('dashboards-central') },
-  { title: 'Vue régionale', hint: 'Détail par région', icon: 'tabler-chart-bar', to: dashboardRoute('dashboards-regional') },
-  { title: 'Mandats', hint: 'Explorateur', icon: 'tabler-file-invoice', to: detailRoute('details-mandats') },
-  { title: 'Recettes', hint: 'Encaissements 4121', icon: 'tabler-cash', to: detailRoute('details-recettes') },
-])
+const compareLabel = computed(() => kpis.value?.parametres.compare_label ?? (compareMode.value === 'periode_precedente' ? 'période précédente' : 'mois précédent'))
+const slaLabel = computed(() => `SLA workflow > ${slaWarningDays.value}j / > ${slaCriticalDays.value}j`)
+
+const quickLinks = computed(() => {
+  const links = [
+    { title: 'Vue centrale', hint: 'Toutes les régions', icon: 'tabler-chart-dots-3', to: dashboardRoute('dashboards-central') },
+    { title: 'Vue régionale', hint: 'Détail par région', icon: 'tabler-chart-bar', to: dashboardRoute('dashboards-regional') },
+    { title: 'Mandats', hint: 'Explorateur', icon: 'tabler-file-invoice', to: detailRoute('details-mandats') },
+    { title: 'Recettes', hint: 'Encaissements 4121', icon: 'tabler-cash', to: detailRoute('details-recettes') },
+  ]
+
+  if (canManagePush.value) {
+    links.push({
+      title: 'Observabilité push',
+      hint: 'Exceptions et retards de push',
+      icon: 'tabler-radar-2',
+      to: { name: 'admin-observabilite-push' },
+    })
+  }
+
+  return links
+})
 
 const heroStats = computed(() => {
   const ind = kpis.value?.indicateurs
@@ -69,12 +119,15 @@ const heroStats = computed(() => {
 
 const strategicKpis = computed(() => {
   const ind = kpis.value?.indicateurs
-  if (!ind) {
+  const workflow = kpis.value?.workflow
+  if (!ind || !workflow) {
     return [
       { key: 'exec', label: 'Taux d\'exécution', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-percentage' },
       { key: 'rejet', label: 'Taux de rejet', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-alert-triangle' },
       { key: 'mandats', label: 'Mandats NAV', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-file-invoice' },
-      { key: 'attente', label: 'Mandats admis', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
+      { key: 'attente', label: 'Admis', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
+      { key: 'autres', label: 'Autres non payés', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-loader-2' },
+      { key: 'cumul', label: 'Cumul hors rejeté', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-stack-2' },
     ]
   }
 
@@ -82,7 +135,30 @@ const strategicKpis = computed(() => {
     { key: 'exec', label: 'Taux d\'exécution', value: formatPercent(ind.taux_execution), accent: 'solde' as KpiAccent, icon: 'tabler-percentage' },
     { key: 'rejet', label: 'Taux de rejet', value: formatPercent(ind.taux_rejet), accent: 'depenses' as KpiAccent, icon: 'tabler-alert-triangle' },
     { key: 'mandats', label: 'Mandats NAV', value: ind.mandats_total.toLocaleString('fr-FR'), accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
-    { key: 'attente', label: 'Mandats admis', value: ind.mandats_admis.toLocaleString('fr-FR'), accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
+    {
+      key: 'attente',
+      label: 'Admis',
+      value: formatFcfa(workflow.admis.montant),
+      variation: `${workflow.admis.count.toLocaleString('fr-FR')} mandat(s)`,
+      accent: 'solde' as KpiAccent,
+      icon: 'tabler-clock',
+    },
+    {
+      key: 'autres',
+      label: 'Autres non payés',
+      value: formatFcfa(workflow.autres_non_payes.montant),
+      variation: `${workflow.autres_non_payes.count.toLocaleString('fr-FR')} mandat(s)`,
+      accent: 'neutral' as KpiAccent,
+      icon: 'tabler-loader-2',
+    },
+    {
+      key: 'cumul',
+      label: 'Cumul hors rejeté',
+      value: formatFcfa(workflow.total_hors_rejet.montant),
+      variation: `${workflow.total_hors_rejet.count.toLocaleString('fr-FR')} mandat(s)`,
+      accent: 'ordonnance' as KpiAccent,
+      icon: 'tabler-stack-2',
+    },
   ]
 })
 
@@ -93,7 +169,7 @@ const financialKpis = computed(() => {
       { key: 'ord', label: 'Ordonnancé national', value: '—', accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
       { key: 'rec', label: 'Recouvrements (4121)', value: '—', accent: 'recouvrements' as KpiAccent, icon: 'tabler-receipt' },
       { key: 'paye', label: 'Payé + Réglé', value: '—', accent: 'paye' as KpiAccent, icon: 'tabler-circle-check' },
-      { key: 'treso', label: 'Solde bancaire NAV', value: '—', accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
+      { key: 'treso', label: 'Solde bancaire filtré', value: '—', accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
       { key: 'ecart', label: 'Écart (4121 − ord.)', value: '—', accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
     ]
   }
@@ -102,13 +178,13 @@ const financialKpis = computed(() => {
     { key: 'ord', label: 'Ordonnancé national', value: formatFcfa(ind.ordonnance_total), accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
     { key: 'rec', label: 'Recouvrements (4121)', value: formatFcfa(ind.recouvrements_4121_total), accent: 'recouvrements' as KpiAccent, icon: 'tabler-receipt' },
     { key: 'paye', label: 'Payé + Réglé', value: formatFcfa(ind.montant_paye_total), accent: 'paye' as KpiAccent, icon: 'tabler-circle-check' },
-    { key: 'treso', label: 'Solde bancaire NAV', value: formatFcfa(ind.tresorerie_reelle_total), accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
+    { key: 'treso', label: 'Solde bancaire filtré', value: formatFcfa(ind.tresorerie_reelle_total), accent: 'tresorerie' as KpiAccent, icon: 'tabler-building-bank' },
     { key: 'ecart', label: 'Écart (4121 − ord.)', value: formatFcfa(ind.solde_total), accent: 'solde' as KpiAccent, icon: 'tabler-scale' },
   ]
 })
 
 const comparaisonRows = computed(() => {
-  const cmp = kpis.value?.comparaison_mois_precedent
+  const cmp = kpis.value?.comparaison_reference
   const ind = kpis.value?.indicateurs
   if (!cmp || !ind)
     return []
@@ -136,6 +212,8 @@ const comparaisonRows = computed(() => {
     },
   ]
 })
+
+const workflowAging = computed(() => kpis.value?.workflow_aging ?? null)
 
 const performanceChart = computed(() => {
   const rows = kpis.value?.performance_regions ?? []
@@ -181,18 +259,39 @@ function evolutionClass(value: number | null | undefined) {
   return 'text-medium-emphasis'
 }
 
+function regionDashboardRoute(code: string) {
+  return {
+    name: 'dashboards-regional',
+    query: baseQuery({ region_code: code }),
+  }
+}
+
+function regionMandatsRoute(code: string) {
+  return detailRoute('details-mandats', { region_code: code })
+}
+
 async function loadDashboard(silent = false) {
   if (dateDebut.value && dateFin.value && dateDebut.value > dateFin.value)
     return
+
+  if (slaCriticalDays.value <= slaWarningDays.value)
+    slaCriticalDays.value = slaWarningDays.value + 1
 
   await fetchAll({
     region_code: regionCode.value ?? undefined,
     date_debut: dateDebut.value,
     date_fin: dateFin.value,
+    compare_mode: compareMode.value,
+    sla_warning_days: slaWarningDays.value,
+    sla_critical_days: slaCriticalDays.value,
   }, { silent })
 }
 
 watch([regionCode, dateDebut, dateFin], () => loadDashboard())
+watch([compareMode, slaWarningDays, slaCriticalDays], () => {
+  syncRoute()
+  loadDashboard()
+})
 
 useDashboardAutoRefresh(() => loadDashboard(true))
 
@@ -252,6 +351,35 @@ onMounted(async () => {
           variant="outlined"
           style="max-inline-size: 170px;"
         />
+        <VSelect
+          v-model="compareMode"
+          label="Comparaison"
+          :items="compareModeOptions"
+          density="compact"
+          hide-details
+          variant="outlined"
+          style="max-inline-size: 220px;"
+        />
+        <VTextField
+          v-model.number="slaWarningDays"
+          label="SLA warning (j)"
+          type="number"
+          min="1"
+          density="compact"
+          hide-details
+          variant="outlined"
+          style="max-inline-size: 140px;"
+        />
+        <VTextField
+          v-model.number="slaCriticalDays"
+          label="SLA critique (j)"
+          type="number"
+          :min="Math.max(2, slaWarningDays + 1)"
+          density="compact"
+          hide-details
+          variant="outlined"
+          style="max-inline-size: 140px;"
+        />
         <VSpacer />
         <VBtn
           variant="flat"
@@ -264,6 +392,31 @@ onMounted(async () => {
           Actualiser
         </VBtn>
       </div>
+    </div>
+
+    <div class="aice-toolbar-meta mb-4">
+      <VChip
+        size="small"
+        variant="tonal"
+        color="primary"
+      >
+        Comparaison : {{ compareLabel }}
+      </VChip>
+      <VChip
+        size="small"
+        variant="tonal"
+        color="warning"
+      >
+        {{ slaLabel }}
+      </VChip>
+      <VChip
+        v-if="workflowAging"
+        size="small"
+        variant="tonal"
+        color="secondary"
+      >
+        Âge encours moyen/max : {{ workflowAging.average_days }}j / {{ workflowAging.max_days }}j
+      </VChip>
     </div>
 
     <VAlert
@@ -285,6 +438,19 @@ onMounted(async () => {
     >
       Aucune donnée nationale mandatée ou recette pour {{ periodLabel }}.
       Élargissez la plage ou vérifiez les pushs régionaux (AICE-API).
+    </VAlert>
+
+    <VAlert
+      v-else-if="silentRegionsCount > 0"
+      type="warning"
+      variant="tonal"
+      class="mb-4"
+      density="compact"
+    >
+      {{ silentRegionsCount.toLocaleString('fr-FR') }} région(s) sont silencieuses sur la période {{ periodLabel }}.
+      <template v-if="canManagePush">
+        Passez par l'observabilité push pour traiter les retards et les absences de remontée.
+      </template>
     </VAlert>
 
     <template v-if="loading">
@@ -311,11 +477,12 @@ onMounted(async () => {
           :key="kpi.key"
           cols="12"
           sm="6"
-          lg="3"
+          lg="4"
         >
           <KpiStat
             :label="kpi.label"
             :value="kpi.value"
+            :variation="kpi.variation"
             :accent="kpi.accent"
             :icon="kpi.icon"
           />
@@ -350,7 +517,7 @@ onMounted(async () => {
         >
           <DataPanel
             title="Alertes actives"
-            :subtitle="`${alertesResume.critiques} critique(s) · ${alertesResume.warnings} vigilance`"
+            :subtitle="`${alertesResume.critiques} critique(s) · ${alertesResume.warnings} vigilance · ${slaLabel}`"
           >
             <AlertList
               :alertes="alertes"
@@ -364,8 +531,8 @@ onMounted(async () => {
           md="4"
         >
           <DataPanel
-            title="Évolution vs période précédente"
-            :subtitle="periodLabel"
+            title="Évolution comparative"
+            :subtitle="`${periodLabel} · Référence : ${compareLabel}`"
           >
             <div
               v-if="!comparaisonRows.length"
@@ -427,7 +594,7 @@ onMounted(async () => {
                 class="aice-trend-block__evolution tabular-nums"
                 :class="evolutionClass(predictions.tendance_depenses.evolution_pct)"
               >
-                Ordonnancé : {{ formatEvolutionPct(predictions.tendance_depenses.evolution_pct) }} vs période précédente
+                Ordonnancé : {{ formatEvolutionPct(predictions.tendance_depenses.evolution_pct) }} vs {{ predictions.reference_label }}
               </p>
 
               <VDivider class="my-4" />
@@ -481,6 +648,9 @@ onMounted(async () => {
                   <th class="text-end">
                     Score
                   </th>
+                  <th class="text-end">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -503,6 +673,28 @@ onMounted(async () => {
                   </td>
                   <td class="text-end tabular-nums font-weight-medium">
                     {{ row.score }}
+                  </td>
+                  <td class="text-end">
+                    <div class="aice-table-actions">
+                      <VBtn
+                        size="x-small"
+                        variant="text"
+                        color="primary"
+                        prepend-icon="tabler-chart-bar"
+                        :to="regionDashboardRoute(row.region.code)"
+                      >
+                        Vue
+                      </VBtn>
+                      <VBtn
+                        size="x-small"
+                        variant="text"
+                        color="primary"
+                        prepend-icon="tabler-file-invoice"
+                        :to="regionMandatsRoute(row.region.code)"
+                      >
+                        Mandats
+                      </VBtn>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -592,6 +784,12 @@ onMounted(async () => {
   text-transform: uppercase;
 }
 
+.aice-toolbar-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .aice-compare-list {
   display: flex;
   flex-direction: column;
@@ -632,6 +830,11 @@ onMounted(async () => {
     font-weight: 600;
     text-transform: uppercase;
   }
+}
+
+.aice-table-actions {
+  display: inline-flex;
+  gap: 0.25rem;
 }
 
 .aice-trend-block {

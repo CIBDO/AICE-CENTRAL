@@ -255,4 +255,83 @@ class MandatCounterTest extends TestCase
         $this->assertSame(2, $paye['count']);
         $this->assertSame(300.0, $paye['montant']);
     }
+
+    public function test_workflow_backlog_splits_admis_other_unpaid_and_excludes_rejets(): void
+    {
+        $rows = collect([
+            new Mouvement([
+                'type_mandat' => '0',
+                'source_numero_mandat' => 'M-ADMIS',
+                'date_mouvement' => '2024-06-01',
+                'statut' => 'Admis',
+                'statut_code' => 'S30',
+                'montant' => 1000,
+                'solde_a_payer' => -700,
+            ]),
+            new Mouvement([
+                'type_mandat' => '1',
+                'source_numero_mandat' => 'M-VISE',
+                'date_mouvement' => '2024-06-02',
+                'statut' => 'Visé',
+                'statut_code' => 'S03',
+                'montant' => 500,
+            ]),
+            new Mouvement([
+                'type_mandat' => '2',
+                'source_numero_mandat' => 'M-PAYE',
+                'date_mouvement' => '2024-06-03',
+                'statut' => 'Payé',
+                'statut_code' => 'S92',
+                'montant' => 900,
+                'montant_paye' => 900,
+            ]),
+            new Mouvement([
+                'type_mandat' => '0',
+                'source_numero_mandat' => 'M-REJET',
+                'date_mouvement' => '2024-06-04',
+                'statut' => 'Rejeté',
+                'montant' => 300,
+            ]),
+        ]);
+
+        $backlog = MandatCounter::workflowBacklog($rows);
+
+        $this->assertSame(1, $backlog['admis']['count']);
+        $this->assertSame(1000.0, $backlog['admis']['montant']);
+        $this->assertSame(1, $backlog['autres_non_payes']['count']);
+        $this->assertSame(500.0, $backlog['autres_non_payes']['montant']);
+        $this->assertSame(2, $backlog['total_hors_rejet']['count']);
+        $this->assertSame(1500.0, $backlog['total_hors_rejet']['montant']);
+    }
+
+    public function test_workflow_backlog_counts_nav_lines_for_admis_source_truth(): void
+    {
+        $rows = collect([
+            new Mouvement([
+                'regional_id' => 'push-1',
+                'type_mandat' => '0',
+                'source_numero_mandat' => 'M-100',
+                'date_mouvement' => '2024-06-01',
+                'statut' => 'Admis',
+                'statut_code' => 'S30',
+                'montant' => 1000,
+                'solde_a_payer' => -700,
+            ]),
+            new Mouvement([
+                'regional_id' => 'push-2',
+                'type_mandat' => '0',
+                'source_numero_mandat' => 'M-100',
+                'date_mouvement' => '2024-06-15',
+                'statut' => 'Admis',
+                'statut_code' => 'S30',
+                'montant' => 1000,
+                'solde_a_payer' => -300,
+            ]),
+        ]);
+
+        $backlog = MandatCounter::workflowBacklog($rows);
+
+        $this->assertSame(2, $backlog['admis']['count']);
+        $this->assertSame(2000.0, $backlog['admis']['montant']);
+    }
 }

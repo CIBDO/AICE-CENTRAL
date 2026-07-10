@@ -23,6 +23,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ['nom' => 'voir_banques', 'description' => 'Voir les banques'],
             ['nom' => 'gerer_banques', 'description' => 'Gérer les banques'],
             ['nom' => 'voir_dashboard', 'description' => 'Voir le tableau de bord'],
+            ['nom' => 'gerer_observabilite_push', 'description' => 'Gérer l\'observabilité des push'],
         ];
 
         foreach ($permissions as $permission) {

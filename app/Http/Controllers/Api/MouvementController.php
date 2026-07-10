@@ -80,7 +80,7 @@ class MouvementController extends Controller
                 $m->code_programme ?? '',
                 $m->beneficiaire ?? '',
                 $m->source_numero_mandat ?? '',
-                $m->nature_ce ?? '',
+                $m->nature_ce ?: ($m->nature ?? ''),
                 number_format((float) $m->montant, 0, ',', ' '),
             ]),
         );

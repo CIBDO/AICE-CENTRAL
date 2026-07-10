@@ -484,6 +484,9 @@ const headers = [
         <template #item.statut="{ item }">
           <StatutChip :statut="item.statut ?? '—'" />
         </template>
+        <template #item.nature_ce="{ item }">
+          <span>{{ item.nature_ce ?? item.nature ?? 'Non renseigné' }}</span>
+        </template>
         <template #item.montant="{ item }">
           <span class="tabular-nums font-weight-medium">{{ formatFcfa(item.montant) }}</span>
         </template>

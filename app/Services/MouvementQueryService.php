@@ -133,7 +133,7 @@ class MouvementQueryService
         }
 
         return DetailQueryFilters::applySearch($query, $filters, [
-            'libelle', 'beneficiaire', 'statut', 'code_programme', 'nature_ce', 'source_numero_mandat',
+            'libelle', 'beneficiaire', 'statut', 'code_programme', 'nature_ce', 'nature', 'source_numero_mandat',
         ]);
     }
 

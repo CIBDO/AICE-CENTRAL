@@ -32,6 +32,7 @@ export interface MouvementRow {
   type_mandat: string | null
   type_mandat_libelle: string | null
   nature_ce: string | null
+  nature?: string | null
   source_numero_mandat: string | null
 }
 

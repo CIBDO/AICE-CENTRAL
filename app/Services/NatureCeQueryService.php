@@ -98,7 +98,7 @@ class NatureCeQueryService
         }
 
         if ($applyNatureCeFilter && !empty($filters['nature_ce'])) {
-            DetailQueryFilters::applyEmptyableFieldFilter($query, 'nature_ce', $filters['nature_ce']);
+            $this->applyEffectiveNatureCeFilter($query, (string) $filters['nature_ce']);
         }
 
         if (!empty($filters['statut'])) {
@@ -128,16 +128,17 @@ class NatureCeQueryService
         $statut = fn (Mouvement $m): string => StatutNormalizer::normalize($m->statut, $m->statut_code) ?? '';
 
         return $rows
-            ->groupBy(fn (Mouvement $m) => $m->nature_ce ?: DetailQueryFilters::EMPTY_LABEL)
+            ->groupBy(fn (Mouvement $m) => self::effectiveNatureCeCode($m))
             ->map(function (Collection $group, string $code) use ($statut) {
                 $payes = $group->filter(
                     fn (Mouvement $m) => in_array($statut($m), ['Payé', 'Réglé'], true)
                 )->count();
                 $count = $group->count();
+                $first = $group->first();
 
                 return [
                     'code' => $code,
-                    'libelle' => $group->first()->nature ?: ('Nature CE ' . $code),
+                    'libelle' => $first ? self::effectiveNatureCeLabel($first) : ('Nature CE ' . $code),
                     'count' => $count,
                     'montant_depenses' => (float) $group->sum(fn (Mouvement $m) => StatutNormalizer::montantForStatut($m)),
                     'paye_count' => $payes,
@@ -146,6 +147,53 @@ class NatureCeQueryService
                 ];
             })
             ->sortByDesc('montant_depenses');
+    }
+
+    private function applyEffectiveNatureCeFilter(Builder $query, string $value): Builder
+    {
+        if ($value === DetailQueryFilters::EMPTY_LABEL) {
+            return $query->where(function (Builder $q) {
+                $q->where(function (Builder $inner) {
+                    $inner->whereNull('nature_ce')->orWhere('nature_ce', '');
+                })->where(function (Builder $inner) {
+                    $inner->whereNull('nature')->orWhere('nature', '');
+                });
+            });
+        }
+
+        return $query->where(function (Builder $q) use ($value) {
+            $q->where('nature_ce', $value)
+                ->orWhere(function (Builder $fallback) use ($value) {
+                    $fallback->where(function (Builder $inner) {
+                        $inner->whereNull('nature_ce')->orWhere('nature_ce', '');
+                    })->where('nature', $value);
+                });
+        });
+    }
+
+    private static function effectiveNatureCeCode(Mouvement $m): string
+    {
+        $natureCe = trim((string) ($m->nature_ce ?? ''));
+        if ($natureCe !== '') {
+            return $natureCe;
+        }
+
+        $nature = trim((string) ($m->nature ?? ''));
+        if ($nature !== '') {
+            return $nature;
+        }
+
+        return DetailQueryFilters::EMPTY_LABEL;
+    }
+
+    private static function effectiveNatureCeLabel(Mouvement $m): string
+    {
+        $nature = trim((string) ($m->nature ?? ''));
+        if ($nature !== '') {
+            return $nature;
+        }
+
+        return self::effectiveNatureCeCode($m);
     }
 
     /** @param Collection<int, Mouvement> $rows */

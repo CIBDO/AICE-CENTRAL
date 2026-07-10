@@ -18,6 +18,10 @@ const periodLabel = computed(() => formatDateRange(dateDebut.value, dateFin.valu
 
 const { loading, error, mouvement, related, context, fetch } = useMouvementDetail()
 
+function effectiveNatureCe(item: MouvementRow | null | undefined) {
+  return item?.nature_ce ?? item?.nature ?? '—'
+}
+
 function listQuery() {
   return baseQuery({
     statut: queryParam(route.query.statut),
@@ -37,7 +41,7 @@ const detailFields = computed(() => {
     { label: 'Bénéficiaire', value: m.beneficiaire ?? '—' },
     { label: 'Programme', value: m.code_programme ? `${m.code_programme} — ${m.programme ?? ''}` : '—' },
     { label: 'Chapitre', value: m.chapitre ?? '—' },
-    { label: 'Nature CE', value: m.nature_ce ?? '—' },
+    { label: 'Nature CE', value: effectiveNatureCe(m) },
     { label: 'Nature', value: m.nature ?? '—' },
     { label: 'Type mandat', value: m.type_mandat_libelle ?? m.type_mandat ?? '—' },
     { label: 'Type mouvement', value: m.type ?? '—' },

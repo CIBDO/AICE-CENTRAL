@@ -449,7 +449,10 @@ class ExecutiveAnalyticsService
     /** @param Collection<int, Mouvement> $mouvements */
     private function computeMouvementStats(Collection $mouvements): array
     {
-        return MandatCounter::computeHierarchyStats($mouvements);
+        $stats = MandatCounter::computeHierarchyStats($mouvements);
+        $stats['mandats_total'] = MandatCounter::navMandatLines($mouvements)->count();
+
+        return $stats;
     }
 
     /** @return array{annee: int, mois: int} */

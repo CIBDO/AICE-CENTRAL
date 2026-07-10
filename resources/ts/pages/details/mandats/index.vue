@@ -57,6 +57,10 @@ const expanded = ref<number[]>([])
 const { loading, error, items, stats, meta, fetch } = useMouvementsExplorer()
 const { regions, fetchRegions } = useRegions()
 
+function effectiveNatureCe(item: MouvementRow) {
+  return item.nature_ce ?? item.nature ?? '—'
+}
+
 const heroStats = computed(() => {
   const t = stats.value?.totaux
   if (!t) {
@@ -458,7 +462,7 @@ const headers = [
                 <div><strong>Bénéficiaire :</strong> {{ item.beneficiaire ?? '—' }}</div>
                 <div><strong>N° mandat :</strong> {{ item.source_numero_mandat ?? '—' }}</div>
                 <div><strong>Type :</strong> {{ item.type_mandat_libelle ?? item.type_mandat ?? '—' }}</div>
-                <div><strong>Nature CE :</strong> {{ item.nature_ce ?? '—' }}</div>
+                <div><strong>Nature CE :</strong> {{ effectiveNatureCe(item) }}</div>
                 <VBtn
                   size="x-small"
                   variant="text"

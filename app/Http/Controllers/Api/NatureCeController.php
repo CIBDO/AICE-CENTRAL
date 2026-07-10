@@ -41,7 +41,7 @@ class NatureCeController extends Controller
             ['Date', 'Nature CE', 'Chapitre', 'Libellé', 'Statut', 'Bénéficiaire', 'N° mandat', 'Montant (FCFA)'],
             $rows->map(fn ($m) => [
                 $m->date_mouvement?->format('d/m/Y') ?? '',
-                $m->nature_ce ?? '',
+                $m->nature_ce ?: ($m->nature ?? ''),
                 $m->chapitre ?? '',
                 $m->libelle ?? '',
                 $m->statut ?? '',

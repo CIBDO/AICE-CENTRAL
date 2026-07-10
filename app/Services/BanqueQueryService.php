@@ -118,7 +118,7 @@ class BanqueQueryService
             $query->where('regional_id', 'like', 'BANQUE-ENTRY-%');
         }
 
-        DetailQueryFilters::applyDateRange($query, $filters, 'date_mouvement', supportsAnneeMois: true);
+        $this->applyBanqueDateRange($query, $filters);
 
         if (!empty($filters['numero_compte'])) {
             $query->where('numero_compte', $filters['numero_compte']);
@@ -127,6 +127,47 @@ class BanqueQueryService
         return DetailQueryFilters::applySearch($query, $filters, [
             'libelle', 'numero_compte', 'reference', 'description', 'type_document',
         ]);
+    }
+
+    /** @param  array<string, mixed>  $filters */
+    private function applyBanqueDateRange(Builder $query, array $filters): Builder
+    {
+        if (!empty($filters['date_debut'])) {
+            $dateDebut = (string) $filters['date_debut'];
+            $dateFin = (string) ($filters['date_fin'] ?? $dateDebut);
+            $annee = (int) substr($dateDebut, 0, 4);
+            $isFullYear = $dateDebut === "{$annee}-01-01" && $dateFin === "{$annee}-12-31";
+
+            return $query->where(function (Builder $q) use ($dateDebut, $dateFin, $annee, $isFullYear) {
+                $q->whereBetween('date_mouvement', [$dateDebut, $dateFin]);
+
+                // Certains pushes bancaires historiques ne portent pas de date mais gardent l'exercice.
+                if ($isFullYear) {
+                    $q->orWhere(function (Builder $fallback) use ($annee) {
+                        $fallback->whereNull('date_mouvement')
+                            ->where('exercice', $annee);
+                    });
+                }
+            });
+        }
+
+        if (!empty($filters['annee'])) {
+            $annee = (int) $filters['annee'];
+
+            $query->where(function (Builder $q) use ($annee) {
+                $q->whereYear('date_mouvement', $annee)
+                    ->orWhere(function (Builder $fallback) use ($annee) {
+                        $fallback->whereNull('date_mouvement')
+                            ->where('exercice', $annee);
+                    });
+            });
+        }
+
+        if (!empty($filters['mois'])) {
+            $query->whereMonth('date_mouvement', (int) $filters['mois']);
+        }
+
+        return $query;
     }
 
     /**

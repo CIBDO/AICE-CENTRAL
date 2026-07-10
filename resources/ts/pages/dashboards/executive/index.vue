@@ -51,7 +51,7 @@ const heroStats = computed(() => {
   if (!ind || !meta) {
     return [
       { label: 'Régions actives', value: '—' },
-      { label: 'Mandats', value: '—' },
+      { label: 'Mandats NAV', value: '—' },
       { label: 'Recettes', value: '—' },
       { label: 'Tous mouvements', value: '—' },
       { label: 'Période', value: periodLabel.value },
@@ -60,7 +60,7 @@ const heroStats = computed(() => {
 
   return [
     { label: 'Régions actives', value: `${meta.regions_avec_donnees} / ${meta.regions_actives}` },
-    { label: 'Mandats', value: ind.mandats_total.toLocaleString('fr-FR') },
+    { label: 'Mandats NAV', value: ind.mandats_total.toLocaleString('fr-FR') },
     { label: 'Recettes', value: meta.recettes_count.toLocaleString('fr-FR') },
     { label: 'Tous mouvements', value: meta.mouvements_count.toLocaleString('fr-FR') },
     { label: 'Période', value: periodLabel.value },
@@ -73,7 +73,7 @@ const strategicKpis = computed(() => {
     return [
       { key: 'exec', label: 'Taux d\'exécution', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-percentage' },
       { key: 'rejet', label: 'Taux de rejet', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-alert-triangle' },
-      { key: 'mandats', label: 'Mandats traités', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-file-invoice' },
+      { key: 'mandats', label: 'Mandats NAV', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-file-invoice' },
       { key: 'attente', label: 'Mandats admis', value: '—', accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
     ]
   }
@@ -81,7 +81,7 @@ const strategicKpis = computed(() => {
   return [
     { key: 'exec', label: 'Taux d\'exécution', value: formatPercent(ind.taux_execution), accent: 'solde' as KpiAccent, icon: 'tabler-percentage' },
     { key: 'rejet', label: 'Taux de rejet', value: formatPercent(ind.taux_rejet), accent: 'depenses' as KpiAccent, icon: 'tabler-alert-triangle' },
-    { key: 'mandats', label: 'Mandats traités', value: ind.mandats_total.toLocaleString('fr-FR'), accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
+    { key: 'mandats', label: 'Mandats NAV', value: ind.mandats_total.toLocaleString('fr-FR'), accent: 'ordonnance' as KpiAccent, icon: 'tabler-file-invoice' },
     { key: 'attente', label: 'Mandats admis', value: ind.mandats_admis.toLocaleString('fr-FR'), accent: 'neutral' as KpiAccent, icon: 'tabler-clock' },
   ]
 })
@@ -125,7 +125,7 @@ const comparaisonRows = computed(() => {
       evolution: cmp.recouvrements_evolution_pct,
     },
     {
-      label: 'Volume mandats',
+      label: 'Volume mandats NAV',
       valeur: ind.mandats_total.toLocaleString('fr-FR'),
       evolution: cmp.mandats_evolution_pct,
     },
@@ -470,7 +470,7 @@ onMounted(async () => {
                 <tr>
                   <th>Région</th>
                   <th class="text-end">
-                    Mandats
+                    Mandats NAV
                   </th>
                   <th class="text-end">
                     Exécution
@@ -511,7 +511,7 @@ onMounted(async () => {
               v-else
               class="aice-panel-empty"
             >
-              Aucune région avec données mandats sur cette période.
+              Aucune région avec données mandats NAV sur cette période.
             </div>
           </DataPanel>
         </VCol>

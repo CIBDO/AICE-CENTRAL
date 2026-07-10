@@ -74,6 +74,71 @@ class ExecutiveDashboardTest extends TestCase
         $response->assertJsonPath('data.meta.mouvements_count', 2);
     }
 
+    public function test_executive_kpis_count_nav_lines_for_mandats_total(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $region = Region::create([
+            'code' => 'SAN',
+            'nom' => 'San',
+            'actif' => true,
+            'token' => 't-san',
+            'source_type' => 'api',
+            'ordre' => 1,
+        ]);
+
+        $dashboard = Dashboard::create([
+            'region_id' => $region->id,
+            'local_id' => 'SAN',
+            'regional_id' => 'D-SAN',
+            'total_ordonnance' => 0,
+            'total_recouvrements_4121' => 0,
+            'total_montant_paye' => 0,
+            'solde' => 0,
+            'tresorerie_reelle' => 0,
+            'annee' => 2024,
+            'mois' => 12,
+        ]);
+
+        Mouvement::create([
+            'dashboard_id' => $dashboard->id,
+            'regional_id' => 'push-1',
+            'libelle' => 'Mandat SAN ligne 1',
+            'montant' => 100,
+            'type' => 'depense',
+            'type_mandat' => '0',
+            'source_numero_mandat' => 'MDT-001',
+            'annee' => 2024,
+            'mois' => 12,
+            'date_mouvement' => '2024-12-10',
+            'statut' => 'Transmis',
+        ]);
+
+        Mouvement::create([
+            'dashboard_id' => $dashboard->id,
+            'regional_id' => 'push-2',
+            'libelle' => 'Mandat SAN ligne 2',
+            'montant' => 200,
+            'type' => 'depense',
+            'type_mandat' => '0',
+            'source_numero_mandat' => 'MDT-001',
+            'annee' => 2024,
+            'mois' => 12,
+            'date_mouvement' => '2024-12-11',
+            'statut' => 'Visé',
+        ]);
+
+        $response = $this->getJson('/api/v1/executive/kpis?' . http_build_query([
+            'region_code' => 'SAN',
+            'date_debut' => '2024-01-01',
+            'date_fin' => '2024-12-31',
+        ]));
+
+        $response->assertOk();
+        $response->assertJsonPath('data.indicateurs.mandats_total', 2);
+        $response->assertJsonPath('data.meta.mandats_count', 2);
+    }
+
     public function test_executive_alertes_lists_region_without_data(): void
     {
         Sanctum::actingAs(User::factory()->create());

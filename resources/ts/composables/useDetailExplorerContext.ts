@@ -1,4 +1,4 @@
-import type { LocationQuery, RouteLocationRaw } from 'vue-router'
+import type { LocationQuery, RouteLocationRaw } from 'vue-router/auto'
 import { endOfMonth, formatDateRange, startOfMonth } from '@/composables/useFormat'
 
 const FILTER_STORAGE_KEY = 'aice-dashboard-filters'
@@ -121,16 +121,16 @@ export function useDetailExplorerContext() {
 
   function detailRoute(name: string, extra: ExplorerExtraQuery = {}): RouteLocationRaw {
     return {
-      name,
+      name: name as any,
       query: baseQuery(extra),
-    }
+    } as RouteLocationRaw
   }
 
   function dashboardRoute(name: string): RouteLocationRaw {
     return {
-      name,
+      name: name as any,
       query: baseQuery(),
-    }
+    } as RouteLocationRaw
   }
 
   function isValidPeriod(): boolean {
@@ -162,10 +162,7 @@ export function useDashboardFilterSync() {
     if (hydrating || !route.name)
       return
 
-    router.replace({
-      name: route.name,
-      query: ctx.baseQuery(),
-    })
+    router.replace({ query: ctx.baseQuery() })
   }
 
   function hydrateFromRoute() {
@@ -202,10 +199,7 @@ export function useExplorerRouteSync(
     if (hydrating || !route.name)
       return
 
-    router.replace({
-      name: route.name,
-      query: ctx.baseQuery(getPageQuery()),
-    })
+    router.replace({ query: ctx.baseQuery(getPageQuery()) })
   }
 
   function hydrateFromRoute() {

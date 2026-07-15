@@ -17,6 +17,86 @@ export interface WorkflowBacklog {
   total_hors_rejet: WorkflowBucket
 }
 
+export interface WorkflowStatusAgingRow {
+  statut: string
+  count: number
+  average_days: number
+  max_days: number
+}
+
+export interface WorkflowConversionRow {
+  key: string
+  label: string
+  base_count: number
+  converted_count: number
+  taux_pct: number
+}
+
+export interface WorkflowInsights {
+  temps_par_statut: WorkflowStatusAgingRow[]
+  conversions: WorkflowConversionRow[]
+  reprise_rejets: {
+    rejetes_count: number
+    repris_count: number
+    taux_pct: number
+  }
+  immobilises_par_statut: Array<{
+    statut: string
+    count: number
+    montant: number
+  }>
+  aging_admis: {
+    count: number
+    montant: number
+    average_days: number
+    max_days: number
+    buckets: Array<{
+      label: string
+      count: number
+    }>
+  }
+}
+
+export interface BankOverview {
+  pont_tresorerie: {
+    solde_debut: number
+    encaissements: number
+    decaissements: number
+    solde_fin: number
+  }
+  evolution: Array<{
+    date: string
+    encaissements: number
+    decaissements: number
+    flux_net: number
+    count: number
+    solde: number
+  }>
+  top_variations: Array<{
+    numero_compte: string
+    libelle: string
+    count: number
+    encaissements: number
+    decaissements: number
+    solde_debut: number
+    solde_fin: number
+    variation: number
+    derniere_date_mouvement: string | null
+  }>
+  anomalies: Array<{
+    type: string
+    priorite: 'critique' | 'warning' | 'info'
+    titre: string
+    detail: string
+  }>
+  confiance: {
+    derniere_date_mouvement: string | null
+    comptes_inclus: number
+    lignes_incluses: number
+    lignes_exclues: number
+  }
+}
+
 export interface MandatTypeRow {
   code: string
   libelle: string
@@ -43,6 +123,8 @@ export interface DashboardSummary {
   }
   kpis: DashboardKpis
   workflow: WorkflowBacklog
+  workflow_insights: WorkflowInsights
+  banques: BankOverview
   mandats_par_type: MandatTypeRow[]
   statuts_mandats: MandatStatutRow[]
   meta: {
@@ -63,7 +145,7 @@ export interface RegionOption {
   derniere_connexion: string | null
 }
 
-export type KpiAccent = 'recouvrements' | 'ordonnance' | 'paye' | 'solde' | 'tresorerie' | 'neutral'
+export type KpiAccent = 'recouvrements' | 'recettes' | 'ordonnance' | 'depenses' | 'paye' | 'solde' | 'tresorerie' | 'encaisse' | 'neutral'
 
 export interface CentralRegionRow {
   region: {

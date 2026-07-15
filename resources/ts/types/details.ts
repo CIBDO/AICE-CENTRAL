@@ -142,6 +142,7 @@ export interface NatureCeRow {
   count: number
   montant_depenses: number
   paye_count: number
+  admis_count: number
   taux_execution_pct: number
 }
 
@@ -149,8 +150,8 @@ export interface NatureCeStats {
   totaux: {
     natures_ce_count: number
     mandats_count: number
-    montant_depenses: number
-    montant_recettes?: number
+    montant_ordonnance: number
+    montant_recouvrements_4121?: number
     taux_execution_pct: number
   }
   natures_ce: NatureCeRow[]

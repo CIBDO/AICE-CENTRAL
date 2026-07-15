@@ -8,6 +8,7 @@ use App\Models\RecetteClientPush;
 use App\Models\Region;
 use App\Support\DashboardKpis;
 use App\Support\MandatCounter;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class DashboardQueryService
@@ -66,6 +67,11 @@ class DashboardQueryService
             'date_debut' => $dateDebut,
             'date_fin' => $dateFin,
         ]);
+        $bankOverview = $this->bankOverview([
+            'region_code' => $region->code,
+            'date_debut' => $dateDebut,
+            'date_fin' => $dateFin,
+        ]);
 
         $annee = (int) substr($dateDebut, 0, 4);
         $isFullYear = $dateDebut === "{$annee}-01-01" && $dateFin === "{$annee}-12-31";
@@ -86,7 +92,7 @@ class DashboardQueryService
             ->get();
 
         if ($mouvements->isEmpty()) {
-            return $this->emptySummary($region, $dateDebut, $dateFin, $bankBalance);
+            return $this->emptySummary($region, $dateDebut, $dateFin, $bankBalance, $bankOverview);
         }
 
         $financial = MandatCounter::financialTotals($mouvements);
@@ -118,6 +124,8 @@ class DashboardQueryService
             ],
             'kpis' => $kpis,
             'workflow' => MandatCounter::workflowBacklog($mouvements),
+            'workflow_insights' => MandatCounter::workflowInsights($mouvements, $dateFin),
+            'banques' => $bankOverview,
             'mandats_par_type' => $this->mandatsParType($mouvements),
             'statuts_mandats' => $this->statutsMandats($mouvements),
             'meta' => $this->summaryMeta(
@@ -165,6 +173,13 @@ class DashboardQueryService
             'date_debut' => $periode['date_debut'],
             'date_fin' => $periode['date_fin'],
         ]);
+        $bankOverview = $this->bankOverview([
+            'region_code' => $region->code,
+            'annee' => $periode['annee'],
+            'mois' => $periode['mois'],
+            'date_debut' => $periode['date_debut'],
+            'date_fin' => $periode['date_fin'],
+        ]);
         $financial = MandatCounter::financialTotals($mouvements);
         $recouvrements = $financial['total_recouvrements_4121'] > 0
             ? $financial['total_recouvrements_4121']
@@ -184,6 +199,11 @@ class DashboardQueryService
             'periode' => $periode,
             'kpis' => $kpis,
             'workflow' => MandatCounter::workflowBacklog($mouvements),
+            'workflow_insights' => MandatCounter::workflowInsights(
+                $mouvements,
+                $this->referenceDateForPeriod($periode['annee'], $periode['mois'], $periode['date_fin']),
+            ),
+            'banques' => $bankOverview,
             'mandats_par_type' => $this->mandatsParType($mouvements),
             'statuts_mandats' => $this->statutsMandats($mouvements),
             'meta' => $this->summaryMeta(
@@ -282,6 +302,7 @@ class DashboardQueryService
         ?string $dateDebut = null,
         ?string $dateFin = null,
         float $bankBalance = 0.0,
+        ?array $bankOverview = null,
     ): array {
         $kpis = DashboardKpis::empty();
         $kpis['tresorerie_reelle'] = $bankBalance;
@@ -303,6 +324,36 @@ class DashboardQueryService
                 'autres_non_payes' => ['count' => 0, 'montant' => 0.0],
                 'total_hors_rejet' => ['count' => 0, 'montant' => 0.0],
             ],
+            'workflow_insights' => [
+                'temps_par_statut' => [],
+                'conversions' => [],
+                'reprise_rejets' => ['rejetes_count' => 0, 'repris_count' => 0, 'taux_pct' => 0.0],
+                'immobilises_par_statut' => [],
+                'aging_admis' => [
+                    'count' => 0,
+                    'montant' => 0.0,
+                    'average_days' => 0.0,
+                    'max_days' => 0,
+                    'buckets' => [],
+                ],
+            ],
+            'banques' => $bankOverview ?? [
+                'pont_tresorerie' => [
+                    'solde_debut' => 0.0,
+                    'encaissements' => 0.0,
+                    'decaissements' => 0.0,
+                    'solde_fin' => 0.0,
+                ],
+                'evolution' => [],
+                'top_variations' => [],
+                'anomalies' => [],
+                'confiance' => [
+                    'derniere_date_mouvement' => null,
+                    'comptes_inclus' => 0,
+                    'lignes_incluses' => 0,
+                    'lignes_exclues' => 0,
+                ],
+            ],
             'mandats_par_type' => [],
             'statuts_mandats' => [],
             'meta' => [
@@ -320,6 +371,15 @@ class DashboardQueryService
     private function bankBalance(array $filters): float
     {
         return $this->banqueQueryService->filteredBalance(array_filter(
+            $filters,
+            fn (mixed $value) => $value !== null && $value !== ''
+        ));
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function bankOverview(array $filters): array
+    {
+        return $this->banqueQueryService->overview(array_filter(
             $filters,
             fn (mixed $value) => $value !== null && $value !== ''
         ));
@@ -344,5 +404,20 @@ class DashboardQueryService
             'mandats_count' => MandatCounter::navMandatLines($rows)->count(),
             'recettes_count' => $rows->where('type', 'recette')->count(),
         ];
+    }
+
+    private function referenceDateForPeriod(?int $annee, ?int $mois, ?string $dateFin): string
+    {
+        if ($dateFin !== null) {
+            return $dateFin;
+        }
+
+        if ($annee === null) {
+            return now()->toDateString();
+        }
+
+        return Carbon::create($annee, $mois ?: 12, 1)
+            ->endOfMonth()
+            ->toDateString();
     }
 }

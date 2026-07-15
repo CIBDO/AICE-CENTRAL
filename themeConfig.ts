@@ -7,7 +7,7 @@ import { AppContentLayoutNav, ContentWidth, FooterType, NavbarType } from '@layo
 
 export const { themeConfig, layoutConfig } = defineThemeConfig({
   app: {
-    title: 'DGTCP',
+    title: 'DGTCP' as Lowercase<string>,
     logo: h('img', {
       src: '/images/dgtcp-logo.png',
       alt: 'DGTCP — Direction Générale du Trésor et de la Comptabilité Publique',

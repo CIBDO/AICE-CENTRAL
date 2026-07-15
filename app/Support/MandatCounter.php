@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Mouvement;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class MandatCounter
@@ -177,6 +178,49 @@ class MandatCounter
     }
 
     /**
+     * Indicateurs workflow avancés pour le dashboard régional.
+     *
+     * @param  Collection<int, Mouvement>  $mouvements
+     * @return array<string, mixed>
+     */
+    public static function workflowInsights(Collection $mouvements, ?string $referenceDate = null): array
+    {
+        $reference = $referenceDate ? Carbon::parse($referenceDate)->startOfDay() : now()->startOfDay();
+        $histories = self::workflowHistories($mouvements);
+        $currentMandats = self::currentWorkflowMandats($mouvements);
+
+        return [
+            'temps_par_statut' => self::workflowDurationsByStatus($histories, $reference),
+            'conversions' => [
+                self::transitionMetric(
+                    $histories,
+                    'transmis_vers_vise',
+                    'Transmis -> Vise',
+                    'Transmis',
+                    ['Visé', 'Précompté', 'Vérifié', 'Admis', 'Proposé au paiement', 'Payé', 'Réglé'],
+                ),
+                self::transitionMetric(
+                    $histories,
+                    'vise_vers_admis',
+                    'Vise -> Admis',
+                    'Visé',
+                    ['Précompté', 'Vérifié', 'Admis', 'Proposé au paiement', 'Payé', 'Réglé'],
+                ),
+                self::transitionMetric(
+                    $histories,
+                    'admis_vers_paye',
+                    'Admis -> Paye/Regle',
+                    'Admis',
+                    ['Payé', 'Réglé'],
+                ),
+            ],
+            'reprise_rejets' => self::recoveryAfterReject($histories),
+            'immobilises_par_statut' => self::immobilizedByStatus($currentMandats),
+            'aging_admis' => self::admisAging($currentMandats, $reference),
+        ];
+    }
+
+    /**
      * Mouvements issus de v_dashboard_mandats (codes 0/1/2 ou libellés équivalents).
      *
      * @param  Collection<int, Mouvement>  $mouvements
@@ -278,6 +322,231 @@ class MandatCounter
     }
 
     /**
+     * @param  Collection<int, Collection<int, Mouvement>>  $histories
+     * @return array<int, array{statut: string, count: int, average_days: float, max_days: int}>
+     */
+    private static function workflowDurationsByStatus(Collection $histories, Carbon $reference): array
+    {
+        $aggregates = [];
+
+        foreach ($histories as $history) {
+            $rows = $history->values();
+
+            for ($index = 0; $index < $rows->count(); $index++) {
+                /** @var Mouvement $row */
+                $row = $rows[$index];
+                $statut = self::normalizedStatus($row);
+                $start = self::movementDate($row);
+                $end = $index < $rows->count() - 1 ? self::movementDate($rows[$index + 1]) : $reference;
+
+                if ($statut === null || $start === null || $end === null) {
+                    continue;
+                }
+
+                $days = max(0, $start->diffInDays($end));
+
+                if (!isset($aggregates[$statut])) {
+                    $aggregates[$statut] = ['statut' => $statut, 'count' => 0, 'total_days' => 0.0, 'max_days' => 0];
+                }
+
+                $aggregates[$statut]['count']++;
+                $aggregates[$statut]['total_days'] += $days;
+                $aggregates[$statut]['max_days'] = max($aggregates[$statut]['max_days'], $days);
+            }
+        }
+
+        return collect($aggregates)
+            ->map(fn (array $row) => [
+                'statut' => $row['statut'],
+                'count' => $row['count'],
+                'average_days' => $row['count'] > 0 ? round($row['total_days'] / $row['count'], 1) : 0.0,
+                'max_days' => $row['max_days'],
+            ])
+            ->sortByDesc('count')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, Collection<int, Mouvement>>  $histories
+     * @param  array<int, string>  $targets
+     * @return array{key: string, label: string, base_count: int, converted_count: int, taux_pct: float}
+     */
+    private static function transitionMetric(
+        Collection $histories,
+        string $key,
+        string $label,
+        string $source,
+        array $targets,
+    ): array {
+        $baseCount = 0;
+        $convertedCount = 0;
+
+        foreach ($histories as $history) {
+            $labels = $history
+                ->map(fn (Mouvement $m) => self::normalizedStatus($m))
+                ->filter()
+                ->values();
+
+            $sourceIndex = $labels->search($source);
+            if ($sourceIndex === false) {
+                continue;
+            }
+
+            $baseCount++;
+
+            $hasTarget = $labels
+                ->slice($sourceIndex + 1)
+                ->contains(fn (?string $status) => in_array($status, $targets, true));
+
+            if ($hasTarget) {
+                $convertedCount++;
+            }
+        }
+
+        return [
+            'key' => $key,
+            'label' => $label,
+            'base_count' => $baseCount,
+            'converted_count' => $convertedCount,
+            'taux_pct' => $baseCount > 0 ? round(($convertedCount / $baseCount) * 100, 1) : 0.0,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Collection<int, Mouvement>>  $histories
+     * @return array{rejetes_count: int, repris_count: int, taux_pct: float}
+     */
+    private static function recoveryAfterReject(Collection $histories): array
+    {
+        $rejectedCount = 0;
+        $recoveredCount = 0;
+
+        foreach ($histories as $history) {
+            $labels = $history
+                ->map(fn (Mouvement $m) => self::normalizedStatus($m))
+                ->filter()
+                ->values();
+
+            $rejectIndexes = $labels
+                ->map(fn (?string $status, int $index) => str_contains((string) $status, 'Rejet') ? $index : null)
+                ->filter(fn ($value) => $value !== null)
+                ->values();
+
+            if ($rejectIndexes->isEmpty()) {
+                continue;
+            }
+
+            $rejectedCount++;
+            $lastRejectIndex = (int) $rejectIndexes->last();
+            $recovered = $labels
+                ->slice($lastRejectIndex + 1)
+                ->contains(fn (?string $status) => $status !== null && ! str_contains($status, 'Rejet'));
+
+            if ($recovered) {
+                $recoveredCount++;
+            }
+        }
+
+        return [
+            'rejetes_count' => $rejectedCount,
+            'repris_count' => $recoveredCount,
+            'taux_pct' => $rejectedCount > 0 ? round(($recoveredCount / $rejectedCount) * 100, 1) : 0.0,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Mouvement>  $currentMandats
+     * @return array<int, array{statut: string, count: int, montant: float}>
+     */
+    private static function immobilizedByStatus(Collection $currentMandats): array
+    {
+        return $currentMandats
+            ->map(function (Mouvement $m) {
+                $statut = self::normalizedStatus($m);
+
+                if ($statut === null || in_array($statut, ['Payé', 'Réglé'], true)) {
+                    return null;
+                }
+
+                return [
+                    'statut' => $statut,
+                    'count' => 1,
+                    'montant' => (float) StatutNormalizer::montantForStatut($m),
+                ];
+            })
+            ->filter()
+            ->groupBy('statut')
+            ->map(fn (Collection $group, string $statut) => [
+                'statut' => $statut,
+                'count' => (int) $group->sum('count'),
+                'montant' => (float) $group->sum('montant'),
+            ])
+            ->sortByDesc('montant')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, Mouvement>  $currentMandats
+     * @return array<string, mixed>
+     */
+    private static function admisAging(Collection $currentMandats, Carbon $reference): array
+    {
+        $admis = $currentMandats
+            ->filter(fn (Mouvement $m) => self::normalizedStatus($m) === 'Admis')
+            ->values();
+
+        $ages = $admis
+            ->map(function (Mouvement $m) use ($reference) {
+                $date = self::movementDate($m);
+
+                return $date ? max(0, $date->diffInDays($reference)) : null;
+            })
+            ->filter(fn ($days) => $days !== null)
+            ->values();
+
+        return [
+            'count' => $admis->count(),
+            'montant' => (float) $admis->sum(fn (Mouvement $m) => StatutNormalizer::montantForStatut($m)),
+            'average_days' => $ages->isNotEmpty() ? round((float) $ages->avg(), 1) : 0.0,
+            'max_days' => $ages->isNotEmpty() ? (int) $ages->max() : 0,
+            'buckets' => [
+                ['label' => '0-7 jours', 'count' => $ages->filter(fn (int $days) => $days <= 7)->count()],
+                ['label' => '8-15 jours', 'count' => $ages->filter(fn (int $days) => $days >= 8 && $days <= 15)->count()],
+                ['label' => '16-30 jours', 'count' => $ages->filter(fn (int $days) => $days >= 16 && $days <= 30)->count()],
+                ['label' => '> 30 jours', 'count' => $ages->filter(fn (int $days) => $days > 30)->count()],
+            ],
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Mouvement>  $mouvements
+     * @return Collection<int, Collection<int, Mouvement>>
+     */
+    private static function workflowHistories(Collection $mouvements): Collection
+    {
+        return self::filterMandats(self::dedupeRows($mouvements))
+            ->filter(fn (Mouvement $m) => ! StatutNormalizer::isExcluded($m->statut, $m->statut_code))
+            ->groupBy(fn (Mouvement $m) => self::mandatKey($m))
+            ->map(fn (Collection $group) => $group->sortBy(fn (Mouvement $m) => self::movementSortKey($m))->values())
+            ->values();
+    }
+
+    /**
+     * @param  Collection<int, Mouvement>  $mouvements
+     * @return Collection<int, Mouvement>
+     */
+    private static function currentWorkflowMandats(Collection $mouvements): Collection
+    {
+        return self::dedupeForCount(
+            self::filterMandats(self::dedupeRows($mouvements))->filter(
+                fn (Mouvement $m) => ! StatutNormalizer::isExcluded($m->statut, $m->statut_code)
+            )
+        )->values();
+    }
+
+    /**
      * Ligne comptable comme l'écran NAV (inclut statut vide, exclut DIAG/TEST).
      */
     private static function isNavLineCountable(Mouvement $m): bool
@@ -358,5 +627,33 @@ class MandatCounter
             'count' => (int) $statusRows->sum(fn (array $row) => (int) ($row['count'] ?? 0)),
             'montant' => (float) $statusRows->sum(fn (array $row) => (float) ($row['montant'] ?? 0)),
         ];
+    }
+
+    private static function normalizedStatus(Mouvement $m): ?string
+    {
+        return StatutNormalizer::normalize($m->statut, $m->statut_code);
+    }
+
+    private static function movementSortKey(Mouvement $m): string
+    {
+        return sprintf(
+            '%s|%010d|%s',
+            self::movementDate($m)?->format('Y-m-d') ?? '0000-01-01',
+            (int) ($m->id ?? 0),
+            (string) ($m->regional_id ?? ''),
+        );
+    }
+
+    private static function movementDate(Mouvement $m): ?Carbon
+    {
+        if ($m->date_mouvement !== null) {
+            return Carbon::parse($m->date_mouvement)->startOfDay();
+        }
+
+        if ($m->annee !== null) {
+            return Carbon::create((int) $m->annee, (int) ($m->mois ?: 1), 1)->startOfDay();
+        }
+
+        return null;
     }
 }

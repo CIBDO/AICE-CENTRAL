@@ -52,7 +52,7 @@ const typeFilter = ref<string | null>('depense')
 const programmeFilter = ref<string | null>(null)
 const activeKpi = ref<string | null>(null)
 const page = ref(1)
-const expanded = ref<number[]>([])
+const expanded = ref<string[]>([])
 
 const { loading, error, items, stats, meta, fetch } = useMouvementsExplorer()
 const { regions, fetchRegions } = useRegions()
@@ -431,7 +431,7 @@ const headers = [
         :headers="headers"
         :items="items"
         :loading="loading"
-        item-value="id"
+        :item-value="(item: MouvementRow) => String(item.id)"
         show-expand
         density="compact"
         class="aice-data-table aice-data-table--clickable"
